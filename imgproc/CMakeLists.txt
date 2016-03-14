@@ -9,7 +9,7 @@ if(WIN32)
   add_definitions(-D_WIN32_WINNT=0x0501)
 endif(WIN32)
 
-check_include_file(libavcodec/avcodec.h HAVE_SWSCALE)
+check_include_file(libswscale/swscale.h HAVE_SWSCALE)
 if (HAVE_SWSCALE)
 	add_definitions(-DHAVE_SWSCALE)
 endif()
