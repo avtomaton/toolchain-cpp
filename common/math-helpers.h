@@ -81,7 +81,7 @@ bool intersect(float x1, float y1, float x2, float y2,
 
 inline double smart_inverse(double val)
 {
-	if (abs(1.0 - val) > 1e-10)
+	if (std::abs(1.0 - val) > 1e-10)
 		return 1.0 / val;
 	else
 		return 1.0;
@@ -93,7 +93,7 @@ inline float to_float(double val)
 		return FLT_MAX;
 	else if (val < FLT_MIN)
 		return FLT_MIN;
-	else if (abs(val - 1.0) <= FLT_EPSILON)
+	else if (std::abs(val - 1.0) <= FLT_EPSILON)
 		return 1.0f;
 	else
 		return float(val);
