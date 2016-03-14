@@ -21,6 +21,8 @@ set(OBJ_UTILS
 	fileutils.h
 	logging.cpp
 	logging.h
+	math-helpers.cpp
+	math-helpers.h
 	profiler.cpp
 	profiler.h
 	stringutils.cpp
