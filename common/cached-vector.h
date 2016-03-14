@@ -14,12 +14,15 @@
 
 #include <opencv2/core/core.hpp>
 
-#ifdef _WIN32
+#if defined(_WIN32)
 #define MARKUP_HUGEFILE
 #ifdef _MSC_VER
 #define fseek64 _fseeki64
 #define ftell64 _ftelli64
 #endif //MSC_VER
+#elif defined(__APPLE__)
+#define fseek64 fseeko
+#define ftell64 ftello
 #else
 #define fseek64 fseeko64
 #define ftell64 ftello64
