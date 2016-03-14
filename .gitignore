@@ -1,3 +1,6 @@
+# machine-dependent settings
+*.user
+
 # Compiled Object files
 *.slo
 *.lo

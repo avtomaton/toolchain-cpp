@@ -1,0 +1,57 @@
+#ifndef AIFIL_FILEUTILS_H
+#define AIFIL_FILEUTILS_H
+
+#include <fstream>
+#include <list>
+#include <set>
+#include <string>
+#include <tuple>
+#include <vector>
+
+#include <cstdio>
+
+namespace aifil {
+
+FILE* fopen_with_backup(const std::string &fname, const std::string &postfix = "_");
+std::string get_relative_path(const std::string &parent, const std::string &file);
+std::list<std::string> ls_directory(const std::string &my_dir,
+		const std::set<std::string> &extensions = std::set<std::string>());
+
+// split file path and extension
+std::tuple<std::string, std::string> splitext(const std::string &path);
+
+// estract file name with extension from full path
+std::string filename(const std::string &path);
+
+bool file_exists(const std::string &filename);
+
+template<typename T>
+int read_value_binary(std::istream &stream, T *val, int count = 1)
+{
+	int bytes = sizeof(T) * count;
+	stream.read(reinterpret_cast<char*>(val), bytes);
+	return bytes;
+}
+
+template<typename T>
+int read_value_binary(std::ostream &stream, const T *val, int count = 1)
+{
+	int bytes = sizeof(T) * count;
+	stream.write(reinterpret_cast<const char*>(val), bytes);
+	return bytes;
+}
+
+//std::string guess_file_path(const std::string& file, bool exception_if_not_found);
+//bool path_absolute(const std::string& path);
+//void rename_or_move_file(const std::string& from, const std::string& to,
+//	bool exception_if_not_found) throw (std::runtime_error);
+//FILE* open_or_die(const std::string& filename, const char* mode);
+//void write_or_die(FILE* f, const void* data, uint32_t len, const std::string& errgen);
+//void read_or_die(FILE* f, void* data, uint32_t len, const std::string& errgen);
+//std::string read_file(const std::string& filename);
+//void path_is_safe_check(const std::string& path_string); //Throws logic_error if path isn't safe
+//std::string safe_filename(const std::string& filename);
+
+} //namespace aifil
+
+#endif //AIFIL_FILEUTILS_H

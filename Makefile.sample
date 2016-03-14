@@ -1,0 +1,49 @@
+SRC  = \
+	cached-vector.cpp \
+	conf-parser.cpp \
+	errutils.cpp \
+	logging.cpp \
+	console.cpp \
+	stringutils.cpp \
+	timeutils.cpp \
+	fileutils.cpp \
+	profiler.cpp
+
+OBJ  = $(SRC:.cpp=.o)
+COBJ = $(CSRC:.c=.o)
+
+OUT = ../../../anfisa/lib/libaifilutils.a
+
+CC   =  gcc
+CCC  =  g++
+LIBS = -lm
+#opencv
+LIBS += -lopencv_core -lopencv_imgproc -lopencv_features2d
+#LIBS += -lopencv_objdetect -lopencv_video -lopencv_highgui
+
+DEFINES = -DHAVE_BOOST
+
+CFLAGS   = -g -O2 -Wall
+CPPFLAGS = -g -O2 -msse2 -fomit-frame-pointer -Wall -std=c++11
+
+default: .depend $(OUT)
+
+$(OUT): $(OBJ) $(COBJ)
+	ar rcs $(OUT) $(OBJ) $(COBJ)
+.cpp.o:
+	$(CCC) $(CPPFLAGS) $(DEFINES) $(CPPFLAGS) -c $< -o $@
+.c.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+.depend:
+	$(CCC) $(CPPFLAGS) $(INCLUDES) -MM $(SRC) $(CSRC) >.depend
+
+clean:
+	rm $(OBJ) $(COBJ) $(OUT)
+	rm .depend
+
+ifeq (,$(findstring clean,$(MAKECMDGOALS)))
+-include .depend
+endif
+
+.PHONY : clean
