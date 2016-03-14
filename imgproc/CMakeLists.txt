@@ -1,12 +1,18 @@
 project(aifil-utils-imgproc)
 
 cmake_minimum_required(VERSION 2.8)
+include(CheckIncludeFile)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 if(WIN32)
   add_definitions(-D_WIN32_WINNT=0x0501)
 endif(WIN32)
+
+check_include_file(libavcodec/avcodec.h HAVE_SWSCALE)
+if (HAVE_SWSCALE)
+	add_definitions(-DHAVE_SWSCALE)
+endif()
 
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})

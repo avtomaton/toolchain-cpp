@@ -11,5 +11,6 @@ endif(WIN32)
 
 add_subdirectory(common)
 add_subdirectory(imgproc)
+add_subdirectory(video)
 
 # add_library(aifil-utils-all ${OBJ_UTILS})
