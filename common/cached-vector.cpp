@@ -144,6 +144,7 @@ const uint8_t* CacheManager::get_sample(int index)
 	return &cache_data[0];
 }
 
+#ifdef HAVE_OPENCV
 CachedVectorMat::CachedVectorMat()
 	: patch_w(0), patch_h(0), channels(0), depth(0), cache(0)
 {
@@ -194,5 +195,6 @@ const cv::Mat& CachedVectorMat::operator[](int index)
 		(void*)cache->get_sample(index));
 	return cached_sample;
 }
+#endif  // HAVE_OPENCV
 
 }  // namespace aifil

@@ -12,7 +12,9 @@
 #include <stdint.h>
 #include <vector>
 
+#ifdef HAVE_OPENCV
 #include <opencv2/core/core.hpp>
+#endif
 
 #if defined(_WIN32)
 #define MARKUP_HUGEFILE
@@ -88,7 +90,8 @@ struct CachedVector
 	}
 };
 
-//vector for cv::Mat
+#ifdef HAVE_OPENCV
+// vector for cv::Mat
 struct CachedVectorMat
 {
 	int patch_w;
@@ -108,6 +111,7 @@ struct CachedVectorMat
 	void add(const cv::Mat &sample);
 	const cv::Mat& operator[](int index);
 };
+#endif
 
 }  //  namespace aifil
 

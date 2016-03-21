@@ -8,6 +8,12 @@ if(WIN32)
   add_definitions(-D_WIN32_WINNT=0x0501)
 endif(WIN32)
 
+find_package(OpenCV QUIET)
+if (${OpenCV_FOUND})
+	include_directories(${OpenCV_INCLUDE_DIRS})
+	add_definitions(-DHAVE_OPENCV)
+endif()
+
 set(OBJ_UTILS
 	cached-vector.cpp
 	cached-vector.h
