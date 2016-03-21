@@ -12,6 +12,9 @@ if (NOT HAVE_AVCODEC OR NOT HAVE_AVFORMAT)
 	message(FATAL_ERROR "You should have avcodec and avformat installed")
 endif()
 
+find_package(OpenCV REQUIRED)
+include_directories(${OpenCV_INCLUDE_DIRS})
+
 set(OBJ_UTILS
 	media-reader.h
 	media-reader.cpp
