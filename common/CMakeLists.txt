@@ -14,6 +14,11 @@ if (${OpenCV_FOUND})
 	add_definitions(-DHAVE_OPENCV)
 endif()
 
+find_package(Boost COMPONENTS filesystem system QUIET)
+if (${Boost_FOUND})
+	add_definitions(-DHAVE_BOOST)
+endif()
+
 set(OBJ_UTILS
 	cached-vector.cpp
 	cached-vector.h
