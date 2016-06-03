@@ -92,21 +92,35 @@ std::list<std::string> ls_directory(const std::string &,
 }
 #endif
 
-std::tuple<std::string, std::string> splitext(const std::string &path)
+std::pair<std::string, std::string> splitext(const std::string &path)
 {
 	std::string base = path;
 	std::string extension;
 	size_t last_slash = base.find_last_of("\\/");
 	size_t last_dot = base.find_last_of(".");
 	if (last_dot != std::string::npos && last_dot != 0 &&
-			last_slash != std::string::npos &&
-			last_dot > last_slash)
+			(last_slash == std::string::npos || last_dot > last_slash))
 	{
 		base.erase(last_dot);
 		extension = path.substr(last_dot);
 	}
 
-	return std::make_tuple(base, extension);
+	return std::pair<std::string, std::string>(base, extension);
+}
+
+std::pair<std::string, std::string> path_split(std::string path)
+{
+	size_t pos = 0;
+	while ((pos = path.find_first_of("\\")) != std::string::npos)
+		path.replace(pos, 1, 1, '/');
+
+	std::string home = "./";
+	pos = path.find_last_of("\\/");
+	if (pos > 0)
+		home = path.substr(0, pos + 1);
+
+	std::string name = path.substr(pos + 1, path.find_last_of('.') - pos - 1);
+	return std::pair<std::string, std::string>(home, name);
 }
 
 std::string filename(const std::string &path)

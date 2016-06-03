@@ -46,6 +46,7 @@ struct ConfigParser
 	typedef void(* MemberCallback)(ConfigParser*, const std::string&);
 	std::map<std::string, std::string*> strings;
 	std::map<std::string, int*> ints;
+	std::map<std::string, bool*> bools;
 	std::map<std::string, double*> reals;
 	std::map<std::string, MemberCallback> callbacks;
 
@@ -60,8 +61,14 @@ struct ConfigParser
 	void write(const std::string &filename = "");
 
 	// parse command-line arguments
+	// supports param name without hyphens, with 1 hyphen or with 2 hyphens
 	void read_args(int argc, char *argv[]);
+
+	// command-line usage
 	std::string usage();
+
+	// print all variables with current values
+	std::string state();
 
 	FILE *file;
 	int line_num;
@@ -70,7 +77,6 @@ struct ConfigParser
 	std::string line_read();
 	static void line_strip(std::string &line);
 	void error(const std::string &text, bool force_stop);
-	void get_name_and_home(std::string path, std::string &name, std::string &home);
 
 	// standard callbacks
 	static void include_parse(ConfigParser *myself, const std::string &val);

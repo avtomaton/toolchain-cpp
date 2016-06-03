@@ -12,15 +12,54 @@
 
 namespace aifil {
 
+/**
+ * @brief Open new file and backup current one to <file name><postfix>
+ * @param fname file name
+ * @param postfix postfix for backup (default is '_')
+ * @return pointer to FILE object
+ */
 FILE* fopen_with_backup(const std::string &fname, const std::string &postfix = "_");
+
+/**
+ * @brief get path of file relative to parent
+ * @param parent folder to split
+ * @param file full path
+ * @return relative file path
+ * @code get_relative_path("/home/user/", "/home/user/aifil/test.cpp")
+ * will return "aifil/test.cpp"
+ */
 std::string get_relative_path(const std::string &parent, const std::string &file);
+
+/**
+ * @brief list files in the given directory (recursive)
+ * all paths will be relative to given directory
+ * @param my_dir directory
+ * @param extensions file extensions to add into the list
+ * @return list of file paths
+ */
 std::list<std::string> ls_directory(const std::string &my_dir,
 		const std::set<std::string> &extensions = std::set<std::string>());
 
-// split file path and extension
-std::tuple<std::string, std::string> splitext(const std::string &path);
+/**
+ * @brief split file name (including path) and extension
+ * @param path path to file
+ * @return file path without extension and file extension
+ */
+std::pair<std::string, std::string> splitext(const std::string &path);
 
-// estract file name with extension from full path
+/**
+ * @brief split path to folder and file name
+ * @param path
+ * @return folder and file name
+ */
+std::pair<std::string, std::string> path_split(std::string path);
+
+/**
+ * @brief extract file name with extension from full path
+ * Output is as from 'basename' utility
+ * @param path file path
+ * @return file name whithout path
+ */
 std::string filename(const std::string &path);
 
 bool file_exists(const std::string &filename);

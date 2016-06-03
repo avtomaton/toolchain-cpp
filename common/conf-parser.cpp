@@ -25,6 +25,7 @@
 #include "conf-parser.h"
 
 #include "errutils.h"
+#include "fileutils.h"
 #include "stringutils.h"
 
 #include <sstream>
@@ -54,21 +55,6 @@ ConfigParser::ConfigParser(bool generate_exceptions)
 	  file(0), line_num(0), skip_lines(0), eof(true)
 {
 	callbacks["!include"] = include_parse;
-}
-
-void ConfigParser::get_name_and_home(std::string path, std::string &name, std::string &home)
-{
-	size_t pos = 0;
-	while ((pos = path.find_first_of("\\")) != std::string::npos)
-		path.replace(pos, 1, 1, '/');
-
-	pos = path.find_last_of("\\/");
-	if (pos > 0)
-		home = path.substr(0, pos + 1);
-	else
-		home = "./";
-
-	name = path.substr(pos + 1, path.find_last_of('.') - pos - 1);
 }
 
 void ConfigParser::include_parse(ConfigParser *self, const std::string &val)
@@ -172,7 +158,9 @@ void ConfigParser::line_strip(std::string &line)
 void ConfigParser::set_file(const std::string &filename)
 {
 	my_filename = filename;
-	get_name_and_home(filename, my_name, my_folder);
+	auto folder_and_name = path_split(filename);
+	my_folder = folder_and_name.first;
+	my_name = folder_and_name.second;
 }
 
 void ConfigParser::read(const std::string &filename)
@@ -200,10 +188,18 @@ void ConfigParser::read()
 		if (line.empty() || line_num <= skip_lines)
 			continue;
 
-		char key[1024];
+		char key[2048];
 		int r = sscanf(line.c_str(), "%s", key);
 		if (r == 1)
 		{
+			if (strlen(key) >= line.size())
+			{
+				if (bools.find(key) != bools.end())
+					*bools[key] = true;
+				else
+					error(stdprintf("incorrect parameter '%s', line %d", key, line_num), false);
+				continue;
+			}
 			char* val = &(line[strlen(key)]);
 			while (*val && (*val==' ' || *val=='\t'))
 				val++;
@@ -215,11 +211,19 @@ void ConfigParser::read()
 				*reals[key] = atof(val);
 			else if (callbacks.find(key) != callbacks.end())
 				callbacks[key](this, val);
+			else if (bools.find(key) != bools.end())
+			{
+				std::string val_str(val);
+				if (val_str == "0" || val_str == "false" || val_str == "off")
+					*bools[key] = false;
+				else if (val_str == "1" || val_str == "true" || val_str == "on")
+					*bools[key] = true;
+			}
 			else
 				error(stdprintf("unknown parameter '%s', line %d", key, line_num), false);
 		}
 		else
-			error(stdprintf("cannot interpret line %d", line_num), false);
+			error(stdprintf("cannot interpret line %d: '%s'", line_num, line.c_str()), false);
 	} //for each line
 
 	if (file)
@@ -240,15 +244,14 @@ void ConfigParser::write(const std::string &filename)
 		return;
 	}
 
-	for (std::map<std::string, std::string*>::const_iterator it0 = strings.begin();
-		 it0 != strings.end(); ++it0)
-		fprintf(file, "%s %s\n", it0->first.c_str(), it0->second->c_str());
-	for (std::map<std::string, int*>::const_iterator it1 = ints.begin();
-		 it1 != ints.end(); ++it1)
-		fprintf(file, "%s %d\n", it1->first.c_str(), *(it1->second));
-	for (std::map<std::string, double*>::const_iterator it2 = reals.begin();
-		 it2 != reals.end(); ++it2)
-		fprintf(file, "%s %lf\n", it2->first.c_str(), *(it2->second));
+	for (auto it = strings.begin(); it != strings.end(); ++it)
+		fprintf(file, "%s %s\n", it->first.c_str(), it->second->c_str());
+	for (auto it = ints.begin(); it != ints.end(); ++it)
+		fprintf(file, "%s %d\n", it->first.c_str(), *(it->second));
+	for (auto it = bools.begin(); it != bools.end(); ++it)
+		fprintf(file, "%s %d\n", it->first.c_str(), *(it->second));
+	for (auto it = reals.begin(); it != reals.end(); ++it)
+		fprintf(file, "%s %lf\n", it->first.c_str(), *(it->second));
 
 	fclose(file);
 	file = 0;
@@ -257,7 +260,9 @@ void ConfigParser::write(const std::string &filename)
 
 void ConfigParser::read_args(int argc, char *argv[])
 {
-	get_name_and_home(argv[0], my_name, my_folder);
+	auto folder_and_name = path_split(argv[0]);
+	my_folder = folder_and_name.first;
+	my_name = folder_and_name.second;
 	bool have_error = false;
 	for (int a = 1; a < argc; ++a)
 	{
@@ -268,11 +273,17 @@ void ConfigParser::read_args(int argc, char *argv[])
 			continue;
 		}
 
-		std::string param_name(&(argv[a][2]));
+		// handle hyphens
+		int param_name_start = 0;
+		if (argv[a][0] == '-')
+			++param_name_start;
+		if (argv[a][1] == '-')
+			++param_name_start;
+		std::string param_name(&(argv[a][param_name_start]));
 		if (param_name == "help")
 		{
 			printf("%s", usage().c_str());
-			exit(0);
+			return;
 		}
 		if (strings.find(param_name) != strings.end() && a + 1 < argc)
 		{
@@ -288,6 +299,20 @@ void ConfigParser::read_args(int argc, char *argv[])
 		{
 			*reals[param_name] = atof(argv[a + 1]);
 			a += 1;
+		}
+		else if (bools.find(param_name) != bools.end())
+		{
+			if (a + 1 < argc && argv[a + 1][0] != '-')
+			{
+				std::string val(argv[a + 1]);
+				if (val == "0" || val == "false" || val == "off")
+					*bools[param_name] = false;
+				else if (val == "1" || val == "true" || val == "on")
+					*bools[param_name] = true;
+				a += 1;
+			}
+			else
+				*bools[param_name] = true;
 		}
 		else
 		{
@@ -305,15 +330,29 @@ std::string ConfigParser::usage()
 	//TODO: help string
 	std::string res("Usage: ");
 	res += my_name;
-	for (std::map<std::string, std::string*>::const_iterator it0 = strings.begin();
-		 it0 != strings.end(); ++it0)
-		res += " [--" + it0->first + " VALUE]";
-	for (std::map<std::string, int*>::const_iterator it1 = ints.begin();
-		 it1 != ints.end(); ++it1)
-		res += " [--" + it1->first + " VALUE]";
-	for (std::map<std::string, double*>::const_iterator it2 = reals.begin();
-		 it2 != reals.end(); ++it2)
-		res += " [--" + it2->first + " VALUE]";
+	for (auto it = strings.begin(); it != strings.end(); ++it)
+		res += " [--" + it->first + " <string value>]";
+	for (auto it = ints.begin(); it != ints.end(); ++it)
+		res += " [--" + it->first + " <integer value>]";
+	for (auto it = reals.begin(); it != reals.end(); ++it)
+		res += " [--" + it->first + " <real value>]";
+	for (auto it = bools.begin(); it != bools.end(); ++it)
+		res += " [--" + it->first + " [0|false|off|1|true|on]]";
+	res += "\n";
+	return res;
+}
+
+std::string ConfigParser::state()
+{
+	std::string res;
+	for (auto it = strings.begin(); it != strings.end(); ++it)
+		res += stdprintf("%s: %s\n", it->first.c_str(), it->second->c_str());
+	for (auto it = ints.begin(); it != ints.end(); ++it)
+		res += stdprintf("%s: %d\n", it->first.c_str(), *(it->second));
+	for (auto it = bools.begin(); it != bools.end(); ++it)
+		res += stdprintf("%s: %s\n", it->first.c_str(), *(it->second) ? "true" : "false");
+	for (auto it = reals.begin(); it != reals.end(); ++it)
+		res += stdprintf("%s: %lf\n", it->first.c_str(), *(it->second));
 	res += "\n";
 	return res;
 }
