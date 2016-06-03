@@ -12,11 +12,13 @@ find_package(OpenCV QUIET)
 if (${OpenCV_FOUND})
 	include_directories(${OpenCV_INCLUDE_DIRS})
 	add_definitions(-DHAVE_OPENCV)
+	message(STATUS "OpenCV: found ${OpenCV_VERSION}")
 endif()
 
 find_package(Boost COMPONENTS filesystem system QUIET)
 if (${Boost_FOUND})
 	add_definitions(-DHAVE_BOOST)
+	message(STATUS "Boost: found ${Boost_LIB_VERSION}")
 endif()
 
 set(OBJ_UTILS
