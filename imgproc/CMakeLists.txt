@@ -10,8 +10,8 @@ if(WIN32)
 endif(WIN32)
 
 find_package(FFMPEG QUIET)
-include_directories(${FFMPEG_INCLUDE_DIR})
 if (FFMPEG_FOUND)
+	include_directories(${FFMPEG_INCLUDE_DIR})
 	add_definitions(-DHAVE_SWSCALE)
 endif()
 

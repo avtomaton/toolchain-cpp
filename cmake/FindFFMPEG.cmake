@@ -7,7 +7,7 @@
 # This module defines::
 #
 #  FFMPEG_INCLUDE_DIR, where to find avcodec.h, avformat.h ...
-#  FFMPEG_LIBRARIES, the libraries to link against to use FFMPEG.
+#  FFMPEG_LIBS, the libraries to link against to use FFMPEG.
 #  FFMPEG_FOUND, If false, do not try to use FFMPEG.
 #
 # also defined, but not for general use are::
@@ -16,7 +16,7 @@
 #   FFMPEG_AVCODEC_LIBRARY, where to find the FFMPEG avcodec library.
 #
 # This is useful to do it this way so that we can always add more libraries
-# if needed to ``FFMPEG_LIBRARIES`` if ffmpeg ever changes...
+# if needed to ``FFMPEG_LIBS`` if ffmpeg ever changes...
 
 #=============================================================================
 # Copyright: 1993-2008 Ken Martin, Will Schroeder, Bill Lorensen
@@ -180,22 +180,22 @@ if(FFMPEG_INCLUDE_DIR)
     if(FFMPEG_AVCODEC_LIBRARY)
       if(FFMPEG_AVUTIL_LIBRARY)
         set(FFMPEG_FOUND "YES")
-        set(FFMPEG_LIBRARIES ${FFMPEG_AVFORMAT_LIBRARY}
+        set(FFMPEG_LIBS ${FFMPEG_AVFORMAT_LIBRARY}
                              ${FFMPEG_AVCODEC_LIBRARY}
                              ${FFMPEG_AVUTIL_LIBRARY}
           )
         if(FFMPEG_SWSCALE_LIBRARY)
-          set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES}
+          set(FFMPEG_LIBS ${FFMPEG_LIBS}
                                ${FFMPEG_SWSCALE_LIBRARY}
           )
         endif()
         if(FFMPEG_AVDEVICE_LIBRARY)
-          set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES}
+          set(FFMPEG_LIBS ${FFMPEG_LIBS}
                                ${FFMPEG_AVDEVICE_LIBRARY}
           )
         endif()
         if(_FFMPEG_z_LIBRARY_)
-          set( FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES}
+          set( FFMPEG_LIBS ${FFMPEG_LIBS}
                                 ${_FFMPEG_z_LIBRARY_}
           )
         endif()
