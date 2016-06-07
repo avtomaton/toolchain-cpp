@@ -296,7 +296,7 @@ void SequentalReader::setup(const std::string &input_path, int fps)
 
 	media_path = input_path;
 	path my_dir(input_path);
-	except(exists(my_dir), "path for media is not exists");
+	except(exists(my_dir), "'" + media_path + "' path for media does not exist");
 
 	if (!is_directory(my_dir) && !aifil::endswith(input_path, ".lst"))
 	{
