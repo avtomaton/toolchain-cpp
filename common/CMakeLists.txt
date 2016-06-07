@@ -17,6 +17,7 @@ endif()
 
 find_package(Boost COMPONENTS filesystem system QUIET)
 if (${Boost_FOUND})
+	include_directories(${Boost_INCLUDE_DIRS})
 	add_definitions(-DHAVE_BOOST)
 	message(STATUS "Boost: found ${Boost_LIB_VERSION}")
 endif()
