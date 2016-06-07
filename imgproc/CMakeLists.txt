@@ -9,7 +9,7 @@ if(WIN32)
   add_definitions(-D_WIN32_WINNT=0x0501)
 endif(WIN32)
 
-find_package(FFMPEG REQUIRED)
+find_package(FFMPEG QUIET)
 include_directories(${FFMPEG_INCLUDE_DIR})
 if (FFMPEG_FOUND)
 	add_definitions(-DHAVE_SWSCALE)
