@@ -1,11 +1,13 @@
 #include "stringutils.h"
 
 #include <algorithm>
+#include <functional>
 #include <sstream>
 #include <cstdarg>
 #include <cstring>
 #include <cstdio>
 #include <ctime>
+#include <cctype>
 
 #if defined(_MSC_VER) && _MSC_VER <= 1310
 #define vsnprintf _vsnprintf
