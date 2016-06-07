@@ -9,8 +9,9 @@ if(WIN32)
   add_definitions(-D_WIN32_WINNT=0x0501)
 endif(WIN32)
 
-check_include_file(libswscale/swscale.h HAVE_SWSCALE)
-if (HAVE_SWSCALE)
+find_package(FFMPEG REQUIRED)
+include_directories(${FFMPEG_INCLUDE_DIR})
+if (FFMPEG_FOUND)
 	add_definitions(-DHAVE_SWSCALE)
 endif()
 
