@@ -26,9 +26,9 @@ std::string stdftime(const char* fmt, uint64_t t64);
 std::string uint64_t_to_str(uint64_t v);
 
 // split by selected character
-std::list<std::string> split(const std::string &s, char delim);
+std::vector<std::string> split(const std::string &s, char delim);
 // split by ANY symbol combinations in delimiters
-std::list<std::string> split(const std::string &s, const std::string &delimiters);
+std::vector<std::string> split(const std::string &s, const std::string &delimiters);
 
 std::string& ltrim(std::string &s);  // trim from begin
 std::string& rtrim(std::string &s);  // trim from end
