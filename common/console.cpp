@@ -54,6 +54,23 @@ void print_progress(const char* fmt, ...)
 	fflush(stdout);
 }
 
+void print_progress(int part, int total, int skip)
+{
+	if (console_state == CON_STATE_END)
+	{
+		fprintf(stdout, "\n");
+		console_state = CON_STATE_BEGIN;
+	}
+
+	part += 1;
+	if (part % skip != 0)
+		return;
+
+	fprintf(stdout, "%.2lf%% (%d/%d)\r",
+			total ? part * 100.0 / total : 0, part, total);
+	fflush(stdout);
+}
+
 void pretty_printf(int level, FILE* fd, const char* buf)
 {
 	//std::unique_lock lock(logging_mutex);
