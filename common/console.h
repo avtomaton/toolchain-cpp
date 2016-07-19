@@ -29,7 +29,7 @@ enum LOG_COLOR {
 
 void get_char();
 void print_progress(const char* fmt, ...);
-void print_progress(int part, int total, int skip);
+void print_progress(int part, int total, int skip = 20);
 void pretty_printf(int level, FILE* fd, const char* buf);
 
 } //namespace aifil
