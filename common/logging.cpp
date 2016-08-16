@@ -233,6 +233,37 @@ void log_ok(const char* fmt, ...)
 		logger->message(buf);
 }
 
+
+void log_state(const std::string & msg)
+{
+	log_state(msg.c_str());
+}
+
+
+void log_raw(const std::string & msg)
+{
+	log_raw(msg.c_str());
+}
+
+
+void log_warning(const std::string & msg)
+{
+	log_warning(msg.c_str());
+}
+
+
+void log_error(const std::string & msg)
+{
+	log_error(msg.c_str());
+}
+
+
+void log_ok(const std::string & msg)
+{
+	log_ok(msg.c_str());
+}
+
+
 #ifdef HAVE_BOOST
 void logger_startup(const std::string& directory_to_write_logs,
 	const std::string& directory_to_save_crashlogs,
@@ -263,7 +294,9 @@ void logger_startup(const std::string& directory_to_write_logs,
 
 void logger_shutdown()
 {
-	std::unique_lock<std::mutex> lock(logging_mutex);
+	// Removed
+	// std::unique_lock<std::mutex> lock(logging_mutex);
+
 	logger.reset();
 }
 #else
@@ -271,10 +304,6 @@ void logger_shutdown()
 void logger_startup(const std::string& directory_to_write_logs,
 	const std::string& directory_to_save_crashlogs,
 	const std::string& logfile_name)
-{
-}
-
-void logger_shutdown()
 {
 }
 
