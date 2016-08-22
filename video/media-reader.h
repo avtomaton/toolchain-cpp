@@ -7,6 +7,10 @@
 #include <list>
 #include <memory>
 
+namespace cv {
+class VideoCapture;
+}
+
 namespace aifil {
 
 class MovieReader
@@ -36,6 +40,7 @@ private:
 struct SequentalReader
 {
 	MovieReader *movie;
+	cv::VideoCapture *cv_movie;
 	std::list<std::string> photos;
 	std::list<std::string>::iterator next_photo;
 	int wanted_fps;
@@ -45,7 +50,7 @@ struct SequentalReader
 	std::string cur_frame_name;
 	std::shared_ptr<MatCache> cur_frame;
 
-	SequentalReader() : movie(0), wanted_fps(25), cur_frame_num(0) {}
+	SequentalReader() : movie(0), cv_movie(0), wanted_fps(25), cur_frame_num(0) {}
 	~SequentalReader();
 
 	void setup(const std::string &path, int fps = 25);
