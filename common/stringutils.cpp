@@ -52,6 +52,16 @@ std::string uint64_t_to_str(uint64_t v)
 	return stdprintf(STDIO_U64F, v);
 }
 
+std::string percent_str(int part, int total, const std::string &prefix)
+{
+	std::string result;
+	if (!prefix.empty())
+		result += prefix + ": ";
+	result += stdprintf("%.2f%% (%d/%d)",
+			total ? part * 100.0 / total : 0, part, total);
+	return result;
+}
+
 std::vector<std::string> split(const std::string &s, char delim)
 {
 	std::vector<std::string> elems;

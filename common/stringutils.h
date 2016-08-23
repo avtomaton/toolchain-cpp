@@ -25,6 +25,9 @@ bool endswith(const std::string &str, const std::string &with);
 std::string stdftime(const char* fmt, uint64_t t64);
 std::string uint64_t_to_str(uint64_t v);
 
+// print something like 'prefix: 30% (6/20)'
+std::string percent_str(int part, int total, const std::string &prefix = "");
+
 // split by selected character
 std::vector<std::string> split(const std::string &s, char delim);
 // split by ANY symbol combinations in delimiters
