@@ -763,6 +763,171 @@ void hog_kernel(const cv::Mat &grangle, const cv::Mat &grmag, cv::Mat &dst, int 
 	} //for each row
 }
 
+void floodfill(cv::Mat &mat, uint8_t background,
+		uint8_t fill_with, int min_cont_size)
+{
+	af_assert(background != fill_with && "trying to floodfill with the same color");
+
+	uint8_t *data = mat.data;
+	int w = mat.size().width;
+	int h = mat.size().height;
+
+	for (int y = 0; y < h; y++)
+	{
+		for (int x = 0; x < w; x++)
+		{
+			uint8_t b = data[y * w + x];
+			if (b == 0 || b == fill_with)
+				continue;
+			int size = floodfill_pixel(
+					data, w, h,
+					background, fill_with,
+					x, y);
+			if (size < min_cont_size) // erase
+				floodfill_pixel(data, w, h, fill_with, 0, x, y);
+//			else
+//				floodfill_pixel(data, w, h, fill_with, 0, x, y);
+		}
+	}
+}
+
+int floodfill_pixel(uint8_t* data, int w, int h,
+					uint8_t background, uint8_t fill_with,
+					int start_x, int start_y)
+{
+	static int dx[] = { -1, -1, 0, 1, 1, 1, 0, -1 };
+	static int dy[] = { 0, -1, -1, -1, 0, 1, 1, 1 };
+
+	std::vector<int> stack_x(w * h);
+	std::vector<int> stack_y(w * h);
+	stack_x[0] = start_x;
+	stack_y[0] = start_y;
+	data[start_y * w + start_x] = fill_with;
+	int pixel_counter = 1;
+	int sp = 1;
+	while (sp)
+	{
+		sp--;
+		int x = stack_x[sp];
+		int y = stack_y[sp];
+		for (int c = 0; c < 8; c++)
+		{
+			int rx = x + dx[c];
+			int ry = y + dy[c];
+			if (rx < 0 || rx > w - 1 || ry < 0 || ry > h - 1)
+				continue;
+			if (data[ry * w + rx] == background)
+			{
+				stack_x[sp] = rx;
+				stack_y[sp] = ry;
+				data[ry * w + rx] = fill_with;
+				pixel_counter++;
+				sp++;
+			}
+		}
+	}
+
+	return pixel_counter;
+}
+
+int find_rects(cv::Mat &img, uint8_t start_color,
+		uint8_t min_color, uint8_t result_color,
+		std::vector<cv::Rect> &rects, int min_obj_size)
+{
+	af_assert(start_color != result_color && "trying to floodfill with the same color");
+	af_assert(!rects.size() && "rectangles vector is not empty");
+	af_assert(start_color >= min_color && min_color > result_color);
+
+	uint8_t *data = img.data;
+	int w = img.size().width;
+	int h = img.size().height;
+
+	int max_rect_square = 0;
+	for (int y = 0; y < h; y++)
+	{
+		for (int x = 0; x < w; x++)
+		{
+			uint8_t b = data[y * w + x];
+			if (b < start_color)
+				continue;
+			cv::Rect rect = find_bounding_rect(
+					data, w, h,
+					min_color, result_color,
+					x, y);
+
+			int area = rect.area();
+			if (double(rect.width) > min_obj_size * 0.01 * w ||
+					double(rect.height) > min_obj_size * 0.01 * h)
+				rects.push_back(rect);
+
+			if (area > max_rect_square)
+				max_rect_square = area;
+		}
+	}
+
+	return max_rect_square;
+}
+
+cv::Rect find_bounding_rect(uint8_t* data, int w, int h,
+		uint8_t start_color, uint8_t result_color,
+		int start_x, int start_y, int allowed_gap)
+{
+	std::vector<int> stack_x(w * h);
+	std::vector<int> stack_y(w * h);
+
+	stack_x[0] = start_x;
+	stack_y[0] = start_y;
+	data[start_y * w + start_x] = result_color;
+	int up_left_x = start_x;
+	int up_left_y = start_y;
+	int down_right_x = start_x;
+	int down_right_y = start_y;
+	int pixel_counter = 1;
+	int sp = 1;
+	while (sp)
+	{
+		sp--;
+		int x = stack_x[sp];
+		int y = stack_y[sp];
+		for (int dx = -allowed_gap; dx <= allowed_gap; dx++)
+		{
+			for (int dy = -allowed_gap; dy <= allowed_gap; dy++)
+			{
+				int rx = x + dx;
+				int ry = y + dy;
+				if (rx < 0 || rx > w - 1 || ry < 0 || ry > h - 1)
+					continue;
+				if (data[ry * w + rx] >= start_color)
+				{
+					if (rx < up_left_x)
+						up_left_x = rx;
+					if (ry < up_left_y)
+						up_left_y = ry;
+					if (rx > down_right_x)
+						down_right_x = rx;
+					if (ry > down_right_y)
+						down_right_y = ry;
+					stack_x[sp] = rx;
+					stack_y[sp] = ry;
+					data[ry * w + rx] = result_color;
+					pixel_counter++;
+					sp++;
+				}
+			}
+		}
+	}
+
+	cv::Rect rect;
+
+	rect.x = up_left_x;
+	rect.y = up_left_y;
+	rect.width = down_right_x - up_left_x;
+	rect.height = down_right_y - up_left_y;
+//	rect.density = ((float)pixel_counter) / rect.rect.area();
+
+	return rect;
+}
+
 class LuvHelperTable
 {
 public:

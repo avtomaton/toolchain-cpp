@@ -107,10 +107,80 @@ void perspective_transform(const cv::Mat & a, cv::Mat &b,
 void integrate(const cv::Mat &src, cv::Mat &dst);
 
 
-//classic historgam of oriented gradient
+// classic historgam of oriented gradient
 void hog_classic(const cv::Mat &grangle, const cv::Mat &grmag, cv::Mat &dst,
 	int nbins, int cell_w, int cell_h, cv::Mat &cn, cv::Mat &ca);
 void hog_kernel(const cv::Mat &grangle, const cv::Mat &grmag, cv::Mat &dst, int start_ch);
+
+
+// image structural analysis
+
+/**
+ * @brief Fill connected areas of size less than min_cont_size
+ * with background color
+ *
+ * @param image [in, out] input image (will be modified by function)
+ * @param background [in] background color
+ * @param fill_with [in] color for filling large areas (unused for now)
+ * @param min_cont_size [in] minimal area square for making decision about bg/fg
+ */
+void floodfill(cv::Mat &image, uint8_t background,
+		uint8_t fill_with, int min_cont_size);
+
+/**
+ * @brief Fill connected to (start_x, start_y) area with fill_with color.
+ * Image should be continious.
+ *
+ * @param data [in] input image bytes
+ * @param w [in] input image width
+ * @param h [in] input image height
+ * @param background [in] background color
+ * @param fill_with [in] color for replacement
+ * @param start_x [in] area start column
+ * @param start_y [in] area start row
+ * @return area square
+ */
+int floodfill_pixel(uint8_t* data, int w, int h,
+			uint8_t background, uint8_t fill_with,
+			int start_x, int start_y);
+
+/**
+ * @brief Find bounding rectangles for connected areas.
+ * Areas shoud contain pixels with intensities more than min_color and
+ * should necessarily contain at least one pixel of start_color.
+ * Function fills these areas with result_color
+ *
+ * @param img [in,out] input image (will be changed after applying the function)
+ * @param start_color [in] color for starting area analysis
+ * @param min_color [in] minimal color to consider pixel belonging to area
+ * @param result_color [in] color to replace area source color
+ * @param rects [out] resulting vector of rectangles
+ * @param min_obj_size [in] minimal object size in percents of image dimensions
+ * @return maximal found rect square
+ */
+int find_rects(cv::Mat &img, uint8_t start_color,
+			uint8_t min_color, uint8_t result_color,
+			std::vector<cv::Rect> &rects, int min_obj_size = 0);
+
+/**
+ * @brief Find bounding rect for area of start_color and fill it with result_color.
+ * Image should be continious.
+ *
+ * @param data [in] input image bytes
+ * @param w [in] input image width
+ * @param h [in] input image height
+ * @param start_color [in] area color
+ * @param result_color [in] replacement color
+ * @param start_x [in] area start column
+ * @param start_y [in] area start row
+ * @param allowed_gap [in] maximal allowed gap between connected components
+ * @return area bounding rectangle
+ */
+cv::Rect find_bounding_rect(
+		uint8_t* data, int w, int h,
+		uint8_t start_color, uint8_t result_color,
+		int start_x, int start_y,
+		int allowed_gap = 0);
 
 } //namespace imgproc
 
