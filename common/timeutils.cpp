@@ -1,8 +1,11 @@
 #include "timeutils.h"
 
+#include <chrono>
 #include "stringutils.h"
 
-namespace aifil {
+
+namespace aifil
+{
 
 std::string sec2time(int full_sec, char stop_at)
 {
@@ -33,6 +36,13 @@ std::string sec2time(int full_sec, char stop_at)
 		res += stdprintf("%ds", sec);
 
 	return res;
+}
+
+
+std::time_t get_current_time_ms()
+{
+	return std::chrono::duration_cast<std::chrono::milliseconds>
+		(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
 } //namespace aifil

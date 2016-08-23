@@ -17,6 +17,13 @@ void log_warning(const char *fmt, ...);
 void log_error(const char *fmt, ...);
 void log_ok(const char* fmt, ...);
 
+void log_state(const std::string & msg);
+void log_raw(const std::string & msg);
+void log_warning(const std::string & msg);
+void log_error(const std::string & msg);
+void log_ok(const std::string & msg);
+
+
 //don't write to console
 void log_quiet(const char* fmt, ...);
 
