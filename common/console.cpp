@@ -156,4 +156,54 @@ void pretty_printf(int level, FILE* fd, const char* buf)
 #endif
 }
 
+void ArgParser::parse_args(int argc, char *argv[])
+{
+	int opt_count = 1;
+	while (opt_count < argc)
+	{
+		// skip positioning parameters
+		if (!has_hyphens(argv[opt_count]))
+		{
+			++opt_count;
+			continue;
+		}
+
+		std::string param_name = trim_hyphens(argv[opt_count]);
+		if (param_name.empty())
+		{
+			log_error("Incorrect parameter '%s'", argv[opt_count]);
+			++opt_count;
+			continue;
+		}
+
+		++opt_count;
+		std::string param_value;
+		if (opt_count < argc)
+			param_value = argv[opt_count];
+
+		params[param_name] = param_value;
+	}
+}
+
+bool ArgParser::has_param(const std::string &param)
+{
+	return params.find(param) != params.end();
+}
+
+bool ArgParser::has_hyphens(const char *param)
+{
+	return strlen(param) > 0 && *param == '-';
+}
+
+std::string ArgParser::trim_hyphens(const char *param)
+{
+	std::string trimmed;
+	if (strlen(param) > 0 && *param == '-')
+		++param;
+	if (strlen(param) > 0 && *param == '-')
+		++param;
+	trimmed = param;
+	return trimmed;
+}
+
 } //namespace aifil
