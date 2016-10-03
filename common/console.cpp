@@ -185,7 +185,7 @@ void ArgParser::parse_args(int argc, char *argv[])
 	}
 }
 
-bool ArgParser::has_param(const std::string &param)
+bool ArgParser::has_param(const std::string &param) const
 {
 	return params.find(param) != params.end();
 }

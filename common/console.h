@@ -41,7 +41,7 @@ void pretty_printf(int level, FILE* fd, const char* buf);
 struct ArgParser
 {
 	void parse_args(int argc, char *argv[]);
-	bool has_param(const std::string &param);
+	bool has_param(const std::string &param) const;
 
 	bool has_hyphens(const char *param);
 	std::string trim_hyphens(const char *param);
