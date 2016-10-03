@@ -1,6 +1,7 @@
 #ifndef AIFIL_UTILS_CONSOLE_H
 #define AIFIL_UTILS_CONSOLE_H
 
+#include <map>
 #include <string>
 
 #ifdef DEBUG
@@ -29,7 +30,23 @@ enum LOG_COLOR {
 
 void get_char();
 void print_progress(const char* fmt, ...);
+void print_progress(int part, int total, int skip = 20);
 void pretty_printf(int level, FILE* fd, const char* buf);
+
+/**
+ * @brief The simplest argument parser.
+ *
+ * Works only with "-param value" or "--param value" forms
+ */
+struct ArgParser
+{
+	void parse_args(int argc, char *argv[]);
+	bool has_param(const std::string &param);
+
+	bool has_hyphens(const char *param);
+	std::string trim_hyphens(const char *param);
+	std::map<std::string, std::string> params;
+};
 
 } //namespace aifil
 

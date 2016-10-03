@@ -10,6 +10,7 @@ extern "C" {
 #include <libavformat/avformat.h>
 }
 
+#include <opencv2/videoio/videoio.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <boost/filesystem.hpp>
@@ -280,6 +281,7 @@ int MovieReader::cur_frame_num()
 SequentalReader::~SequentalReader()
 {
 	delete movie;
+	delete cv_movie;
 }
 
 void SequentalReader::setup(const std::string &input_path, int fps)
@@ -289,6 +291,9 @@ void SequentalReader::setup(const std::string &input_path, int fps)
 
 	delete movie;
 	movie = 0;
+	delete cv_movie;
+	cv_movie = 0;
+
 	cur_frame_num = 0;
 	photos.clear();
 	cur_frame_name.clear();
@@ -301,12 +306,27 @@ void SequentalReader::setup(const std::string &input_path, int fps)
 	if (!is_directory(my_dir) && !aifil::endswith(input_path, ".lst"))
 	{
 		// try to load movie
-		movie = new MovieReader(input_path);
+		bool ffmpeg_explicit_backend = false;
+		if (ffmpeg_explicit_backend)
+		{
+			movie = new MovieReader(input_path);
 
-		except(!!movie, "movie is specified but is not found");
-		aifil::log_state("movie mode (%s), frame size: %ix%i",
-				  input_path.c_str(), movie->w, movie->h);
-		cur_frame.reset(new MatCache(movie->w, movie->h));
+			except(!!movie, "movie is specified but is not found");
+			aifil::log_state("movie mode (%s), frame size: %ix%i",
+					  input_path.c_str(), movie->w, movie->h);
+			cur_frame.reset(new MatCache(movie->w, movie->h));
+		}
+		else
+		{
+			cv_movie = new cv::VideoCapture(input_path);
+			except(!!cv_movie, "movie is specified but is not found");
+
+			int movie_w = int(cv_movie->get(cv::CAP_PROP_FRAME_WIDTH));
+			int movie_h = int(cv_movie->get(cv::CAP_PROP_FRAME_HEIGHT));
+			aifil::log_state("movie mode (%s), frame size: %ix%i",
+					  input_path.c_str(), movie_w, movie_h);
+			cur_frame.reset(new MatCache(movie_w, movie_h));
+		}
 	}
 	else
 	{
@@ -357,6 +377,15 @@ bool SequentalReader::feed_frame()
 							  movie->U, movie->rs_U,
 							  movie->V, movie->rs_V);
 	}
+	else if (cv_movie)
+	{
+		cv::Mat frame;
+		if (!cv_movie->read(frame))
+			return false;
+
+		cur_frame_num = int(cv_movie->get(cv::CAP_PROP_POS_FRAMES));
+		cur_frame->set_cv_mat(frame);
+	}
 	else if (!photos.empty())
 	{
 		if (next_photo == photos.end())
@@ -367,12 +396,13 @@ bool SequentalReader::feed_frame()
 		if (mat.empty())
 		{
 			aifil::log_warning("wrong image file '%s'", next_photo->c_str());
-			return false;
+
+			// don't break GUI functionality, just create empty black image
+			mat = cv::Mat(640, 480, CV_8UC3, cv::Scalar(0, 0, 0));
 		}
-		if (!mat.empty()
-			&& (!cur_frame
+		if (!cur_frame
 				|| cur_frame->width != mat.cols
-				|| cur_frame->height != mat.rows))
+				|| cur_frame->height != mat.rows)
 			cur_frame.reset(new MatCache(mat.cols, mat.rows));
 
 		cur_frame->set_cv_mat(mat);
@@ -393,6 +423,15 @@ bool SequentalReader::fast_feed_frame()//cur_frame is invalid
 		if (!frame_num)
 			return false;
 		cur_frame_num = frame_num;
+	}
+	else if (cv_movie)
+	{
+		// TODO: make in faster
+		cv::Mat frame;
+		if (!cv_movie->read(frame))
+			return false;
+
+		cur_frame_num = int(cv_movie->get(cv::CAP_PROP_POS_FRAMES));
 	}
 	else if (!photos.empty())
 	{

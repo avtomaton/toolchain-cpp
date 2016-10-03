@@ -41,8 +41,8 @@ std::string sec2time(int full_sec, char stop_at)
 
 std::time_t get_current_time_ms()
 {
-	return (std::chrono::system_clock::now().time_since_epoch() /
-	        std::chrono::milliseconds(1));
+	return std::chrono::duration_cast<std::chrono::milliseconds>
+		(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
 } //namespace aifil

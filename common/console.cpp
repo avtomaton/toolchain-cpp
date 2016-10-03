@@ -54,6 +54,23 @@ void print_progress(const char* fmt, ...)
 	fflush(stdout);
 }
 
+void print_progress(int part, int total, int skip)
+{
+	if (console_state == CON_STATE_END)
+	{
+		fprintf(stdout, "\n");
+		console_state = CON_STATE_BEGIN;
+	}
+
+	part += 1;
+	if (part % skip != 0)
+		return;
+
+	fprintf(stdout, "%.2lf%% (%d/%d)\r",
+			total ? part * 100.0 / total : 0, part, total);
+	fflush(stdout);
+}
+
 void pretty_printf(int level, FILE* fd, const char* buf)
 {
 	//std::unique_lock lock(logging_mutex);
@@ -137,6 +154,56 @@ void pretty_printf(int level, FILE* fd, const char* buf)
 	if (isatty(fileno(fd)))
 		fprintf(fd, "\033[0m");
 #endif
+}
+
+void ArgParser::parse_args(int argc, char *argv[])
+{
+	int opt_count = 1;
+	while (opt_count < argc)
+	{
+		// skip positioning parameters
+		if (!has_hyphens(argv[opt_count]))
+		{
+			++opt_count;
+			continue;
+		}
+
+		std::string param_name = trim_hyphens(argv[opt_count]);
+		if (param_name.empty())
+		{
+			log_error("Incorrect parameter '%s'", argv[opt_count]);
+			++opt_count;
+			continue;
+		}
+
+		++opt_count;
+		std::string param_value;
+		if (opt_count < argc)
+			param_value = argv[opt_count];
+
+		params[param_name] = param_value;
+	}
+}
+
+bool ArgParser::has_param(const std::string &param)
+{
+	return params.find(param) != params.end();
+}
+
+bool ArgParser::has_hyphens(const char *param)
+{
+	return strlen(param) > 0 && *param == '-';
+}
+
+std::string ArgParser::trim_hyphens(const char *param)
+{
+	std::string trimmed;
+	if (strlen(param) > 0 && *param == '-')
+		++param;
+	if (strlen(param) > 0 && *param == '-')
+		++param;
+	trimmed = param;
+	return trimmed;
 }
 
 } //namespace aifil

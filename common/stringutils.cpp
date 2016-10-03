@@ -52,9 +52,19 @@ std::string uint64_t_to_str(uint64_t v)
 	return stdprintf(STDIO_U64F, v);
 }
 
-std::list<std::string> split(const std::string &s, char delim)
+std::string percent_str(int part, int total, const std::string &prefix)
 {
-	std::list<std::string> elems;
+	std::string result;
+	if (!prefix.empty())
+		result += prefix + ": ";
+	result += stdprintf("%.2f%% (%d/%d)",
+			total ? part * 100.0 / total : 0, part, total);
+	return result;
+}
+
+std::vector<std::string> split(const std::string &s, char delim)
+{
+	std::vector<std::string> elems;
 	std::stringstream ss(s);
 	std::string item;
 	while (std::getline(ss, item, delim))
@@ -62,9 +72,9 @@ std::list<std::string> split(const std::string &s, char delim)
 	return elems;
 }
 
-std::list<std::string> split(const std::string &input, const std::string &delimiters)
+std::vector<std::string> split(const std::string &input, const std::string &delimiters)
 {
-	std::list<std::string> elems;
+	std::vector<std::string> elems;
 	size_t cur = 0;
 	size_t next = cur;
 	while (next != std::string::npos)
