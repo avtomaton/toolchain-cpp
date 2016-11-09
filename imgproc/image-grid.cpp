@@ -1,6 +1,6 @@
-#include "image-grid.h"
+#include "image-grid.hpp"
 
-#include <common/errutils.h>
+#include <common/errutils.hpp>
 
 ImageCell::ImageCell()
 	: x(0), y(0), size_w(0), size_h(0)

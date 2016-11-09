@@ -22,14 +22,14 @@
  *
  */
 
-#include "mat-cache.h"
+#include "mat-cache.hpp"
 
-#include "imgproc.h"
+#include "imgproc.hpp"
 
-#include <common/errutils.h>
-#include <common/logging.h>
-#include <common/profiler.h>
-#include <common/stringutils.h>
+#include <common/errutils.hpp>
+#include <common/logging.hpp>
+#include <common/profiler.hpp>
+#include <common/stringutils.hpp>
 
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/imgproc/types_c.h>

@@ -5,9 +5,9 @@
  * implements size(), add(val), operator[] and clear()
  */
 
-#include "compat-vc71.h"
-#include "stringutils.h"
-#include "errutils.h"
+#include "compat-vc71.hpp"
+#include "stringutils.hpp"
+#include "errutils.hpp"
 
 #include <stdint.h>
 #include <vector>

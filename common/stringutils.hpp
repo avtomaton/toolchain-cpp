@@ -1,6 +1,8 @@
 #ifndef AIFIL_STRINGUTILS_H
 #define AIFIL_STRINGUTILS_H
 
+#include "c_attribs.hpp"
+
 #include <list>
 #include <stdint.h>
 #include <string>
@@ -16,7 +18,7 @@
 
 namespace aifil {
 
-std::string stdprintf(const char* fmt, ...)
+std::string stdprintf(const char* fmt, ...) AF_FORMAT(printf, 1, 2)
 #ifndef _MSC_VER
 __attribute__ ((format (printf, 1, 2)))
 #endif

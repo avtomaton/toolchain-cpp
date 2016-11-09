@@ -25,7 +25,7 @@
 #ifndef AIFIL_CONF_PARSER_H
 #define AIFIL_CONF_PARSER_H
 
-#include "errutils.h"
+#include "errutils.hpp"
 
 #include <string>
 #include <map>

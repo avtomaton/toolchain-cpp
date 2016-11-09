@@ -1,9 +1,9 @@
-#include "imgproc.h"
+#include "imgproc.hpp"
 
-#include <common/stringutils.h>
-#include <common/errutils.h>
-#include <common/logging.h>
-#include <common/profiler.h>
+#include <common/stringutils.hpp>
+#include <common/errutils.hpp>
+#include <common/logging.hpp>
+#include <common/profiler.hpp>
 
 namespace aifil {
 namespace imgproc {

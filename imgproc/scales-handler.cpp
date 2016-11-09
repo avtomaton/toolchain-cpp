@@ -22,13 +22,13 @@
  *
  */
 
-#include "scales-handler.h"
+#include "scales-handler.hpp"
 
-#include "imgproc.h"
+#include "imgproc.hpp"
 
-#include <common/errutils.h>
-#include <common/logging.h>
-#include <common/profiler.h>
+#include <common/errutils.hpp>
+#include <common/logging.hpp>
+#include <common/profiler.hpp>
 
 #include <opencv2/opencv.hpp>
 

@@ -1,7 +1,7 @@
 #ifndef AIFIL_MEDIA_READER_H
 #define AIFIL_MEDIA_READER_H
 
-#include "imgproc/mat-cache.h"
+#include "imgproc/mat-cache.hpp"
 
 #include <string>
 #include <list>

@@ -8,20 +8,14 @@
  *
  *
  */
-#include "imgproc.h"
+#include "imgproc.hpp"
 
 //#include "sse/sse.h"
 
-#include <common/stringutils.h>
-#include <common/errutils.h>
-#include <common/logging.h>
-#include <common/profiler.h>
-
-#ifdef USE_BOOST
-// here's something to avoid std::mutex, std::shared_ptr etc
-#else
-#define PROFILE(a) ;
-#endif
+#include <common/stringutils.hpp>
+#include <common/errutils.hpp>
+#include <common/logging.hpp>
+#include <common/profiler.hpp>
 
 #ifdef HAVE_SWSCALE
 extern "C" {
@@ -983,6 +977,42 @@ void rgb_to_luv_pix(const float r, const float g, const float b,
 	*pu = (u_value + 134.f) * (255.f / (220.f + 134.f));
 	*pv = (v_value + 140.f) * (255.f / (122.f + 140.f));
 }
+
+cv::Mat to8b(const cv::Mat &src)
+{
+	cv::Mat dst;
+	if (src.type() == CV_8U)
+		return src.clone();
+	src.convertTo(dst, CV_8U);
+	return dst;
+}
+
+
+cv::Mat to_gray(const cv::Mat &src)
+{
+	if (src.channels() == 3)
+	{
+		cv::Mat gray;
+		cv::cvtColor(src, gray, cv::COLOR_BGR2GRAY);
+		return gray;
+	}
+	else if (src.channels() == 1)
+		return src.clone();
+	else
+		aifil::log_error("to:Gray Marix of unkown type!");
+	return cv::Mat();
+}
+
+cv::Mat to32f(const cv::Mat &src)
+{
+	cv::Mat dst;
+	if (src.type() == CV_32F)
+		return src.clone();
+	src.convertTo(dst, CV_32F);
+	return dst;
+}
+
+
 
 }  // namespace imgproc
 }  // namespace aifil

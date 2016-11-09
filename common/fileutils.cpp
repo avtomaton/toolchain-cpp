@@ -1,12 +1,15 @@
-#include "fileutils.h"
+#include "fileutils.hpp"
 
-#include "errutils.h"
+#include "errutils.hpp"
 
 #ifdef HAVE_BOOST
 #define BOOST_NO_CXX11_SCOPED_ENUMS
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 #undef BOOST_NO_CXX11_SCOPED_ENUMS
+
+namespace fs = boost::filesystem;
+
 #endif
 
 namespace aifil {
@@ -50,45 +53,128 @@ std::string get_relative_path(const std::string &parent, const std::string &file
 	return rest;
 }
 
-std::list<std::string> ls_directory(const std::string &my_dir,
-	const std::set<std::string> &extensions)
+// add path to result if it meets type and extension criteria
+static void add_proper_path_to_result(
+		const fs::path &p, PATH_TYPE path_types,
+		const std::set<std::string> &extensions,
+		std::list<std::string> &result)
+{
+	if (fs::is_directory(p) && !(path_types & PATH_FOLDER))
+		return;
+	if (fs::is_symlink(p) && !(path_types & PATH_SYMLINK))
+		return;
+	if (fs::is_regular_file(p) && !(path_types & PATH_FILE))
+		return;
+	if (fs::is_other(p) && !(path_types & PATH_OTHER))
+		return;
+	if (!extensions.empty())
+	{
+		std::string my_ext = p.extension().string();
+		boost::algorithm::to_lower(my_ext);
+		if (extensions.find(my_ext) == extensions.end())
+			return;
+	}
+	std::string full_name = p.generic_string();
+	result.push_back(full_name);
+}
+
+std::list<std::string> ls_directory(
+		const std::string &my_dir,
+		PATH_TYPE path_types,
+		bool recursive,
+		const std::set<std::string> &extensions)
 {
 	std::list<std::string> result;
 
-	using namespace boost::filesystem;
-	recursive_directory_iterator it(my_dir);
-	for ( ; it != recursive_directory_iterator(); ++it)
+	if (!path_exists(my_dir))
 	{
-		path p = it->path();
-		if (!is_regular_file(p))
-			continue;
-		std::string my_ext = p.extension().string();
-		boost::algorithm::to_lower(my_ext);
-		if (!extensions.empty() && extensions.find(my_ext) == extensions.end())
-			continue;
-		std::string full_name = p.generic_string();
-//		log_state("FILE '%s'\n", full_name.c_str());
-		result.push_back(full_name);
+		aifil::log_warning("Can't list directory '%s': does not exist", my_dir.c_str());
+		return result;
+	}
+
+	if (!fs::is_directory(my_dir))
+	{
+		aifil::log_warning("Can't list '%s': it is not directory", my_dir.c_str());
+		return result;
+	}
+
+	if (recursive)
+	{
+		fs::recursive_directory_iterator it(my_dir);
+		for ( ; it != fs::recursive_directory_iterator(); ++it)
+			add_proper_path_to_result(it->path(), path_types, extensions, result);
+	}
+	else
+	{
+		fs::directory_iterator it(my_dir);
+		for ( ; it != fs::directory_iterator(); ++it)
+			add_proper_path_to_result(it->path(), path_types, extensions, result);
 	}
 
 	return result;
 }
 
-#else
-FILE* fopen_with_backup(const std::string &, const std::string &)
+std::list<std::string> ls_directory(
+		const std::string &my_dir,
+		const std::set<std::string> &extensions,
+		bool recursive)
 {
-	af_assert(!"need compilation with HAVE_BOOST for using 'fopen_with_backup'");
+	return ls_directory(my_dir, PATH_FILE, recursive, extensions);
 }
 
-std::string get_relative_path(const std::string &, const std::string &)
+bool path_exists(const std::string &target_path)
 {
-	af_assert(!"need compilation with HAVE_BOOST for using 'get_relative_path'");
+	return fs::exists(fs::path(target_path.c_str()));
 }
 
-std::list<std::string> ls_directory(const std::string &,
-		const std::set<std::string> &)
+std::string parent_path(const std::string &str)
 {
-	af_assert(!"need compilation with HAVE_BOOST for using 'ls_directory'");
+	return fs::path(str).parent_path().string();
+}
+
+char file_separator()
+{
+	return fs::path::preferred_separator;
+}
+
+void rmtree(const std::string &dir_path)
+{
+	fs::remove_all(fs::path(dir_path));
+}
+
+bool makedirs(const std::string &path)
+{
+	if (path.empty())
+		return false;
+
+	fs::path tgt(path);
+	if (fs::exists(tgt) && fs::is_directory(tgt))
+		return true;  // everything is OK
+	else if (fs::exists(tgt))
+	{
+		aifil::log_warning("makedirs: cannot create '%s', file with the same"
+				" path already exists", path.c_str());
+		return false;
+	}
+	else if (!fs::create_directories(tgt))
+	{
+		aifil::log_warning("makedirs: cannot create '%s'", path.c_str());
+		return false;
+	}
+
+	return true;
+}
+
+void dir_tree_create(const std::string &prototype, const std::string &target_path)
+{
+	makedirs(target_path);
+
+	std::list<std::string> lst = ls_directory(prototype, aifil::PATH_FOLDER, false);
+	for (const auto &node : lst)
+	{
+		fs::path pnode(node.c_str());
+		dir_tree_create((prototype / pnode).string(), (target_path / pnode).string());
+	}
 }
 #endif
 
@@ -108,23 +194,25 @@ std::pair<std::string, std::string> splitext(const std::string &path)
 	return std::pair<std::string, std::string>(base, extension);
 }
 
-std::pair<std::string, std::string> path_split(std::string path)
+std::pair<std::string, std::string> path_split(const std::string &path)
 {
-	size_t pos = 0;
-	while ((pos = path.find_first_of("\\")) != std::string::npos)
-		path.replace(pos, 1, 1, '/');
-
 	std::string home = "./";
-	pos = path.find_last_of("\\/");
-	if (pos > 0)
+	std::string name = path;
+	size_t pos = path.find_last_of("\\/");
+	if (pos != std::string::npos)
+	{
 		home = path.substr(0, pos + 1);
+		name = path.substr(pos + 1);
+	}
 
-	std::string name = path.substr(pos + 1, path.find_last_of('.') - pos - 1);
 	return std::pair<std::string, std::string>(home, name);
 }
 
 std::string filename(const std::string &path)
 {
+#ifdef HAVE_BOOST
+	return fs::path(path).filename().string();
+#endif
 	size_t last_slash = path.find_last_of("\\/");
 	if (last_slash != std::string::npos)
 		return path.substr(last_slash + 1);
@@ -132,10 +220,38 @@ std::string filename(const std::string &path)
 		return path;
 }
 
+std::string stem(const std::string &path)
+{
+#ifdef HAVE_BOOST
+	return fs::path(path).stem().string();
+#endif
+	return splitext(filename(path)).first;
+}
+
+std::string extension(const std::string &path)
+{
+#ifdef HAVE_BOOST
+	return fs::path(path).extension().string();
+#endif
+	return splitext(filename(path)).second;
+}
+
 bool file_exists(const std::string &filename)
 {
 	std::ifstream in_file(filename.c_str());
 	return in_file.is_open();
+}
+
+int line_count_in_file(const std::string &file_name)
+{
+	std::ifstream f(file_name);
+	if (!f.is_open())
+		return 0;
+	std::string line;
+	int num = 0;
+	while (std::getline(f, line))
+		num++;
+	return num;
 }
 
 } //namespace aifil

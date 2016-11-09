@@ -1,9 +1,9 @@
-#include "media-reader.h"
+#include "media-reader.hpp"
 
-#include <common/errutils.h>
-#include <common/fileutils.h>
-#include <common/logging.h>
-#include <common/stringutils.h>
+#include <common/errutils.hpp>
+#include <common/fileutils.hpp>
+#include <common/logging.hpp>
+#include <common/stringutils.hpp>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -396,13 +396,15 @@ bool SequentalReader::feed_frame()
 		if (mat.empty())
 		{
 			aifil::log_warning("wrong image file '%s'", next_photo->c_str());
-
+			
 			// don't break GUI functionality, just create empty black image
 			mat = cv::Mat(640, 480, CV_8UC3, cv::Scalar(0, 0, 0));
+			return false;
 		}
-		if (!cur_frame
+		if (!mat.empty()
+			&& (!cur_frame
 				|| cur_frame->width != mat.cols
-				|| cur_frame->height != mat.rows)
+				|| cur_frame->height != mat.rows))
 			cur_frame.reset(new MatCache(mat.cols, mat.rows));
 
 		cur_frame->set_cv_mat(mat);

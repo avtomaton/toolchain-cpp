@@ -1,8 +1,14 @@
-#include "timeutils.h"
+#include "timeutils.hpp"
+
+#include "stringutils.hpp"
 
 #include <chrono>
-#include "stringutils.h"
 
+#ifdef HAVE_BOOST
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/date_time/posix_time/posix_time_io.hpp>
+#include <boost/date_time.hpp>
+#endif
 
 namespace aifil
 {
@@ -38,11 +44,52 @@ std::string sec2time(int full_sec, char stop_at)
 	return res;
 }
 
-
-std::time_t get_current_time_ms()
+std::time_t get_system_time_ms()
 {
 	return std::chrono::duration_cast<std::chrono::milliseconds>
 		(std::chrono::system_clock::now().time_since_epoch()).count();
 }
+
+#ifdef HAVE_BOOST
+int64_t iso_to_unix_time(const std::string & iso_time)
+{
+	std::string time_string = iso_time;
+	size_t pos = time_string.find(' ');
+
+	if (pos > 0)
+		time_string[pos] = 'T';
+
+	boost::posix_time::ptime time_stamp_iso =
+	    boost::date_time::parse_delimited_time<boost::posix_time::ptime>(time_string, 'T');
+	boost::posix_time::ptime unix_epoch(boost::gregorian::date(1970, 1, 1));
+	boost::posix_time::time_duration delta = time_stamp_iso - unix_epoch;
+
+	return delta.total_milliseconds();
+}
+
+
+int64_t get_current_utc_unix_time_ms()
+{
+	using boost::gregorian::date;
+	using boost::posix_time::ptime;
+	using boost::posix_time::microsec_clock;
+
+	ptime const epoch(date(1970, 1, 1));
+
+	return (microsec_clock::universal_time() - epoch).total_milliseconds();
+}
+
+
+int64_t get_current_local_unix_time_ms()
+{
+	using boost::gregorian::date;
+	using boost::posix_time::ptime;
+	using boost::posix_time::microsec_clock;
+
+	ptime const epoch(date(1970, 1, 1));
+
+	return (microsec_clock::local_time() - epoch).total_milliseconds();
+}
+#endif  // HAVE_BOOST
 
 } //namespace aifil

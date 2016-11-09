@@ -1,6 +1,6 @@
-#include "profiler.h"
+#include "profiler.hpp"
 
-#include "stringutils.h"
+#include "stringutils.hpp"
 
 #include <stdint.h>
 #include <cstdio>

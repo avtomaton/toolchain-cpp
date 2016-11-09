@@ -9,30 +9,34 @@ if(WIN32)
   add_definitions(-D_WIN32_WINNT=0x0501)
 endif(WIN32)
 
+find_package(OpenCV REQUIRED)
+include_directories(${OpenCV_INCLUDE_DIRS})
+
+set(AIFIL_UTILS_IMGPROC_DEPS ${OpenCV_LIBS})
+
 find_package(FFMPEG QUIET)
 if (FFMPEG_FOUND)
 	include_directories(${FFMPEG_INCLUDE_DIR})
 	add_definitions(-DHAVE_SWSCALE)
+	list(APPEND AIFIL_UTILS_IMGPROC_DEPS ${FFMPEG_LIBS})
 endif()
-
-find_package(OpenCV REQUIRED)
-include_directories(${OpenCV_INCLUDE_DIRS})
 
 include_directories(${CMAKE_SOURCE_DIR}/..)
 include_directories(${CMAKE_SOURCE_DIR})
 
 set(OBJ_UTILS
 	filter.cpp
-	filter.h
+	filter.hpp
 	image-grid.cpp
-	image-grid.h
+	image-grid.hpp
 	imgproc.cpp
-	imgproc.h
+	imgproc.hpp
 	mat-cache.cpp
-	mat-cache.h
-	pixel.h
+	mat-cache.hpp
+	pixel.hpp
 	# scales-handler.cpp
-	# scales-handler.h
+	# scales-handler.hpp
 )
 
 add_library(aifil-utils-imgproc ${OBJ_UTILS})
+set(AIFIL_UTILS_IMGPROC_DEPS ${AIFIL_UTILS_IMGPROC_DEPS} PARENT_SCOPE)

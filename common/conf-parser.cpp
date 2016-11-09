@@ -22,11 +22,11 @@
  *
  */
 
-#include "conf-parser.h"
+#include "conf-parser.hpp"
 
-#include "errutils.h"
-#include "fileutils.h"
-#include "stringutils.h"
+#include "errutils.hpp"
+#include "fileutils.hpp"
+#include "stringutils.hpp"
 
 #include <sstream>
 #include <cstdio>

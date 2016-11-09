@@ -4,12 +4,6 @@
 #include <map>
 #include <string>
 
-#ifdef DEBUG
-#define log_debug(a) log_state(a)
-#else
-#define log_debug(a) ;
-#endif
-
 namespace aifil {
 
 enum CONSOLE_STATE {
@@ -19,6 +13,7 @@ enum CONSOLE_STATE {
 
 enum LOG_COLOR {
 	LOG_COLOR_GRAY,
+	LOG_COLOR_NORMAL,
 	LOG_COLOR_HL,
 	LOG_COLOR_RED,
 	LOG_COLOR_GREEN,
@@ -28,7 +23,7 @@ enum LOG_COLOR {
 	LOG_COLOR_YELLOW
 };
 
-void get_char();
+int get_char();
 void print_progress(const char* fmt, ...);
 void print_progress(int part, int total, int skip = 20);
 void pretty_printf(int level, FILE* fd, const char* buf);
@@ -41,11 +36,12 @@ void pretty_printf(int level, FILE* fd, const char* buf);
 struct ArgParser
 {
 	void parse_args(int argc, char *argv[]);
-	bool has_param(const std::string &param);
+	bool has_param(const std::string &param) const;
 
-	bool has_hyphens(const char *param);
+	bool has_leading_hyphen(const std::string &param);
 	std::string trim_hyphens(const char *param);
 	std::map<std::string, std::string> params;
+//	std::vector<std::string> positional;
 };
 
 } //namespace aifil

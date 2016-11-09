@@ -1,4 +1,4 @@
-#include "stringutils.h"
+#include "stringutils.hpp"
 
 #include <algorithm>
 #include <functional>
@@ -26,14 +26,11 @@ std::string stdprintf(const char* fmt, ...)
 	return buf;
 }
 
-bool endswith(const std::string &str, const std::string &with)
+bool endswith(const std::string& str, const std::string& with)
 {
-	size_t str_len  = strlen(str.c_str());
-	size_t with_len = strlen(with.c_str());
-	if (str_len < with_len)
-		return false;
-	const char* s = str.c_str()  + (str_len - with_len);
-	return strcmp(s, with.c_str()) == 0;
+	if (with.empty())
+		return true;
+	return (str.size() >= with.size()) && std::equal(with.rbegin(), with.rend(), str.rbegin());
 }
 
 std::string stdftime(const char* fmt, uint64_t t64)

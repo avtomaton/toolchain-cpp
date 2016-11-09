@@ -16,6 +16,8 @@
 //#ifdef DEBUG_PRINT
 //#endif
 
+#include "filter.hpp"
+
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/types_c.h>
 
@@ -24,7 +26,6 @@
 #include <vector>
 #include <string>
 
-#include "filter.h"
 
 namespace aifil {
 namespace imgproc {
@@ -180,7 +181,11 @@ cv::Rect find_bounding_rect(
 		uint8_t* data, int w, int h,
 		uint8_t start_color, uint8_t result_color,
 		int start_x, int start_y,
-		int allowed_gap = 0);
+		int allowed_gap = 1);
+cv::Mat to8b(const cv::Mat &src);
+cv::Mat to_gray(const cv::Mat &src);
+cv::Mat to32f(const cv::Mat &src);
+
 
 } //namespace imgproc
 
@@ -274,6 +279,7 @@ cv::Mat cv_mat_convert<float>(const cv::Mat &src)
 		src.convertTo(dst, CV_32F);
 	return dst;
 }
+
 
 }  // namespace aifil
 

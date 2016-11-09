@@ -1,6 +1,6 @@
-#include "console.h"
+#include "console.hpp"
 
-#include "errutils.h"
+#include "errutils.hpp"
 
 #include <stdint.h>
 #include <cstdio>
@@ -22,10 +22,10 @@ namespace aifil {
 
 CONSOLE_STATE console_state = CON_STATE_BEGIN;
 
-void get_char()
+int get_char()
 {
 #ifdef _WIN32
-	_getch();
+	return _getch();
 #else
 	struct termios oldt, newt;
 	tcgetattr(STDIN_FILENO, &oldt);
@@ -34,6 +34,7 @@ void get_char()
 	tcsetattr(STDIN_FILENO, TCSANOW, &newt);
 	int ch = getchar();
 	tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+	return ch;
 #endif
 }
 
@@ -62,8 +63,7 @@ void print_progress(int part, int total, int skip)
 		console_state = CON_STATE_BEGIN;
 	}
 
-	part += 1;
-	if (part % skip != 0)
+	if (part % skip != 0 && part != total)
 		return;
 
 	fprintf(stdout, "%.2lf%% (%d/%d)\r",
@@ -73,6 +73,9 @@ void print_progress(int part, int total, int skip)
 
 void pretty_printf(int level, FILE* fd, const char* buf)
 {
+	if (!fd)
+		return;
+
 	//std::unique_lock lock(logging_mutex);
 #if defined(_WIN32) && !defined(CYGWIN)
 	HANDLE con = 0;
@@ -134,10 +137,14 @@ void pretty_printf(int level, FILE* fd, const char* buf)
 			fprintf(fd, "\033[33m");
 			break;
 		case LOG_COLOR_GRAY:
+			fprintf(fd, "\033[30m");
+			break;
+		case LOG_COLOR_NORMAL:
+			fprintf(fd, "\033[0m");
 			break;
 		case LOG_COLOR_HL:
+			fprintf(fd, "\033[1m");
 		default:
-			fprintf(fd, "\033[36m");
 			break;
 		}
 	}
@@ -162,7 +169,7 @@ void ArgParser::parse_args(int argc, char *argv[])
 	while (opt_count < argc)
 	{
 		// skip positioning parameters
-		if (!has_hyphens(argv[opt_count]))
+		if (!has_leading_hyphen(argv[opt_count]))
 		{
 			++opt_count;
 			continue;
@@ -181,18 +188,25 @@ void ArgParser::parse_args(int argc, char *argv[])
 		if (opt_count < argc)
 			param_value = argv[opt_count];
 
+		// boolean parameters support: if have hyphens it is the next parameter,
+		// not parameter value
+		if (has_leading_hyphen(param_value))
+			param_value.clear();
+		else
+			++opt_count;
+
 		params[param_name] = param_value;
 	}
 }
 
-bool ArgParser::has_param(const std::string &param)
+bool ArgParser::has_param(const std::string &param) const
 {
 	return params.find(param) != params.end();
 }
 
-bool ArgParser::has_hyphens(const char *param)
+bool ArgParser::has_leading_hyphen(const std::string &param)
 {
-	return strlen(param) > 0 && *param == '-';
+	return !param.empty() && param[0] == '-';
 }
 
 std::string ArgParser::trim_hyphens(const char *param)

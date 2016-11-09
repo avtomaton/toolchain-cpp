@@ -1,4 +1,4 @@
-/** @file scales-handler.h
+/** @file scales-handler.hpp
  *
  *  @brief image scales handler
  *
@@ -11,7 +11,7 @@
 #ifndef AIFIL_SCALES_HANDLER_H
 #define AIFIL_SCALES_HANDLER_H
 
-#include "mat-cache.h"
+#include "mat-cache.hpp"
 
 #include <opencv2/core/core.hpp>
 

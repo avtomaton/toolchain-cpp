@@ -1,4 +1,4 @@
-#include "math-helpers.h"
+#include "math-helpers.hpp"
 
 namespace aifil {
 

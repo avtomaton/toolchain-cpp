@@ -15,34 +15,28 @@ if (${OpenCV_FOUND})
 	message(STATUS "OpenCV: found ${OpenCV_VERSION}")
 endif()
 
-find_package(Boost COMPONENTS filesystem system QUIET)
-if (${Boost_FOUND})
-	include_directories(${Boost_INCLUDE_DIRS})
-	add_definitions(-DHAVE_BOOST)
-	message(STATUS "Boost: found ${Boost_LIB_VERSION}")
-endif()
-
 set(OBJ_UTILS
 	cached-vector.cpp
-	cached-vector.h
+	cached-vector.hpp
 	conf-parser.cpp
-	conf-parser.h
+	conf-parser.hpp
 	console.cpp
-	console.h
+	console.hpp
 	errutils.cpp
-	errutils.h
+	errutils.hpp
 	fileutils.cpp
-	fileutils.h
+	fileutils.hpp
 	logging.cpp
-	logging.h
+	logging.hpp
 	math-helpers.cpp
-	math-helpers.h
+	math-helpers.hpp
 	profiler.cpp
-	profiler.h
+	profiler.hpp
 	stringutils.cpp
-	stringutils.h
+	stringutils.hpp
 	timeutils.cpp
-	timeutils.h
+	timeutils.hpp
+	c_attribs.hpp
 )
 
 add_library(aifil-utils-common ${OBJ_UTILS})

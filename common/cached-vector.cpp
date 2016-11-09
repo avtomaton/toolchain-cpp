@@ -1,4 +1,4 @@
-#include "cached-vector.h"
+#include "cached-vector.hpp"
 
 #include <cstdio>
 

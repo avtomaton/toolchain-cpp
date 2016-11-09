@@ -1,5 +1,5 @@
-#include "compat-vc71.h"
-#include "errutils.h"
+#include "compat-vc71.hpp"
+#include "errutils.hpp"
 
 namespace aifil {
 
