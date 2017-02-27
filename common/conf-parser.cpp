@@ -190,15 +190,21 @@ void ConfigParser::read()
 
 		char key[2048];
 		int r = sscanf(line.c_str(), "%s", key);
+
 		if (r == 1)
 		{
 			if (strlen(key) >= line.size())
 			{
-				if (bools.find(key) != bools.end())
-					*bools[key] = true;
+				if(strings.find(key) != strings.end())
+					*strings[key] = "";
 				else
-					error(stdprintf("incorrect parameter '%s', line %d", key, line_num), false);
-				continue;
+				{
+					if (bools.find(key) != bools.end())
+						*bools[key] = true;
+					else
+						error(stdprintf("incorrect parameter '%s', line %d", key, line_num), false);
+					continue;
+				}
 			}
 			char* val = &(line[strlen(key)]);
 			while (*val && (*val==' ' || *val=='\t'))

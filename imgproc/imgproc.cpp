@@ -167,6 +167,47 @@ int difference(const cv::Mat &src_0, const cv::Mat &src_1,
 	return cv::countNonZero(dst);
 }
 
+cv::Mat rotate(const cv::Mat &src, double angle, double scale, cv::Rect roi, cv::Point2d center)
+{
+	if (roi == cv::Rect())
+		roi = cv::Rect(0, 0, src.cols, src.rows);
+
+	if (angle == 0.0 && scale == 1.0)
+		return src(roi).clone();
+
+	if (center == cv::Point2d(-1,-1))
+		center = cv::Point2d(roi.x + roi.width/2.0, roi.y + roi.height/2.0);
+
+	int diag = 2 + (int)ceil(sqrt(double(roi.width * roi.width + roi.height * roi.height)));
+
+	cv::Rect crop(center.x - diag / 2.0, center.y - diag / 2.0, diag, diag);
+	if (crop.x < 0)
+	{
+		crop.width += crop.x;
+		crop.x = 0;
+	}
+	if (crop.y < 0)
+	{
+		crop.height += crop.y;
+		crop.y = 0;
+	}
+	if (crop.x + crop.width > src.cols)
+		crop.width = src.cols - crop.x;
+	if (crop.y + crop.height > src.rows)
+		crop.height = src.rows - crop.y;
+
+	cv::Rect roi_crop(roi.x - crop.x, roi.y - crop.y, roi.width, roi.height);
+	cv::Point2f crop_center(center.x - crop.x, center.y - crop.y);
+	cv::Mat crop_image = src(crop);
+
+	cv::Mat dst;
+	cv::Mat rot_mat = cv::getRotationMatrix2D(crop_center, -angle, 1.0 / scale);
+	cv::warpAffine(crop_image, dst, rot_mat, crop_image.size(), cv::INTER_LINEAR | cv::WARP_INVERSE_MAP, cv::BORDER_REPLICATE);
+	dst = dst(roi_crop);
+
+	return dst;
+}
+
 void flatten(const cv::Mat &src, cv::Mat &dst)
 {
 	af_assert(src.type() == CV_32FC1);
@@ -826,7 +867,8 @@ int floodfill_pixel(uint8_t* data, int w, int h,
 
 int find_rects(cv::Mat &img, uint8_t start_color,
 		uint8_t min_color, uint8_t result_color,
-		std::vector<cv::Rect> &rects, int min_obj_size)
+		std::vector<cv::Rect> &rects,
+		int min_obj_size, int allowed_gap)
 {
 	af_assert(start_color != result_color && "trying to floodfill with the same color");
 	af_assert(!rects.size() && "rectangles vector is not empty");
@@ -847,7 +889,7 @@ int find_rects(cv::Mat &img, uint8_t start_color,
 			cv::Rect rect = find_bounding_rect(
 					data, w, h,
 					min_color, result_color,
-					x, y);
+					x, y, allowed_gap);
 
 			int area = rect.area();
 			if (double(rect.width) > min_obj_size * 0.01 * w ||
@@ -987,7 +1029,6 @@ cv::Mat to8b(const cv::Mat &src)
 	return dst;
 }
 
-
 cv::Mat to_gray(const cv::Mat &src)
 {
 	if (src.channels() == 3)
@@ -999,20 +1040,136 @@ cv::Mat to_gray(const cv::Mat &src)
 	else if (src.channels() == 1)
 		return src.clone();
 	else
-		aifil::log_error("to:Gray Marix of unkown type!");
+		aifil::log_error("Conversion to grayscale: unknown image type");
 	return cv::Mat();
 }
 
 cv::Mat to32f(const cv::Mat &src)
 {
-	cv::Mat dst;
 	if (src.type() == CV_32F)
 		return src.clone();
+	cv::Mat dst;
 	src.convertTo(dst, CV_32F);
 	return dst;
 }
 
+bool out_of_border(const cv::Rect &rect, const cv::Mat &mat)
+{
+	return rect.x < 0 || rect.x + rect.width > mat.cols ||
+		rect.y < 0 || rect.y + rect.height > mat.rows;
+}
 
+// function generator for wrappers with cv::Mat input:
+// determine type and call templated version
+#define MAKE_FUNC_FOR_OCV_TYPES(RETVAL_TYPE, FUNC) \
+RETVAL_TYPE FUNC(const cv::Mat& src) \
+{ \
+	if (src.depth() == CV_8U) \
+		return FUNC<uint8_t>(src); \
+	else if (src.depth() == CV_32S) \
+		return FUNC<int>(src); \
+	else if (src.depth() == CV_32F) \
+		return FUNC<float>(src); \
+	else if (src.depth() == CV_64F) \
+		return FUNC<double>(src); \
+	else \
+		af_assert(!bool("unsupported matrix depth")); \
+	return RETVAL_TYPE(); \
+}
+
+template<typename T>
+cv::Point2d expected_value(const cv::Mat_<T> &src)
+{
+	af_assert(src.channels() == 1);
+
+	cv::Point2d m(src.cols / 2.0, src.rows / 2.0);
+
+	if (src.empty())
+		return m;
+
+	double sum = cv::sum(src)[0];
+	if (sum == 0)
+		return m;
+
+	for (int y = 0; y < src.rows; ++y)
+	{
+		for (int x = 0; x < src.cols; ++x)
+		{
+			m.x += double(x) * src(y, x); // x
+			m.y += double(y) * src(y, x); // y
+		}
+	}
+	m.x /= sum;
+	m.y /= sum;
+
+	return m;
+}
+
+template<typename type>
+cv::Point2d variance(const cv::Mat_<type> &src)
+{
+	af_assert(src.channels() == 1);
+
+	cv::Point2d m2(0, 0);
+
+	if (src.empty())
+		return m2;
+
+	double sum = cv::sum(src)[0];
+	if (sum == 0)
+		return m2;
+
+	// M[X^2]
+	for (int y = 0; y < src.rows; ++y)
+	{
+		for (int x = 0; x < src.cols; ++x)
+		{
+			m2.x += double(x) * x * src(y, x);
+			m2.y += double(y) * y * src(y, x);
+		}
+	}
+	m2.x /= sum;
+	m2.y /= sum;
+
+	// M[X]^2
+	cv::Point2d m = expected_value(src);
+	m.x *= m.x;
+	m.y *= m.y;
+
+	return m2 - m;
+}
+
+template<typename type_t>
+double median(const cv::Mat_<type_t> &src)
+{
+	if (src.empty())
+		return 0;
+
+	af_assert(src.channels() == 1);
+
+	std::vector<type_t> vec(src.total());
+	if (src.cols == 1)
+	{
+		cv::Mat_<type_t> tmp;
+		cv::transpose(src, tmp);
+		auto data = tmp[0];
+		std::copy(data, data + tmp.total(), &(vec[0]));
+	}
+	else
+	{
+		for (int i = 0; i < src.rows; ++i)
+		{
+			auto data = src[i];
+			std::copy(data, data + src.cols, &(vec[i * src.cols]));
+		}
+	}
+	std::nth_element(vec.begin(), vec.begin() + vec.size()/2, vec.end());
+	return double(vec[vec.size() / 2]);
+}
+
+MAKE_FUNC_FOR_OCV_TYPES(cv::Point2d, expected_value)
+MAKE_FUNC_FOR_OCV_TYPES(cv::Point2d, variance)
+MAKE_FUNC_FOR_OCV_TYPES(double, median)
 
 }  // namespace imgproc
 }  // namespace aifil

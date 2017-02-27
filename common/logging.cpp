@@ -2,6 +2,7 @@
 
 #include "console.hpp"
 #include "errutils.hpp"
+#include "timeutils.hpp"
 
 #ifdef HAVE_BOOST
 #include <boost/filesystem.hpp>
@@ -285,6 +286,26 @@ void log_ok(const char* fmt, ...)
 		logger->message(buf);
 }
 
+void log_custom(int loglevel, const char* fmt, ...)
+{
+	if (required_log_level != loglevel)
+		return;
+
+	static char prefix[] = "\n";
+	char buf[65536];
+	strcpy(buf, prefix);
+
+	va_list ap;
+	va_start(ap, fmt);
+	vsnprintf(buf + sizeof(prefix) - 1, sizeof(buf) - sizeof(prefix), fmt, ap);
+	va_end(ap);
+	buf[65535] = 0;
+	pretty_printf(LOG_COLOR_NORMAL, printf_stream, buf);
+	if (logger)
+		logger->message(buf);
+}
+
+
 void log_debug(const std::string & msg)
 {
 	log_debug(msg.c_str());
@@ -310,16 +331,19 @@ void log_warning(const std::string & msg)
 	log_warning(msg.c_str());
 }
 
-
 void log_error(const std::string & msg)
 {
 	log_error(msg.c_str());
 }
 
-
 void log_ok(const std::string & msg)
 {
 	log_ok(msg.c_str());
+}
+
+void log_custom(int loglevel, const std::string & msg)
+{
+	log_custom(loglevel, msg.c_str());
 }
 
 

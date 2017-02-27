@@ -57,6 +57,22 @@ int difference(const cv::Mat &src_0, const cv::Mat &src_1,
 int difference(const cv::Mat &src_0, const cv::Mat &src_1,
 	const cv::Mat &thresh, cv::Mat &dst, cv::Mat &tmp);
 
+/**
+ * @brief Rotate image on specified angle around image center.
+ * @param src [in] Input image.
+ * @param angle [in] Angle in degrees.
+ * @param scale [in] Scaling.
+ * @param roi [in] Cropping. Default - full src.
+ * @param center [in] Rotate center. Default - roi center.
+ * @return Rotated image.
+ */
+cv::Mat rotate(
+	const cv::Mat &src,
+	double angle,
+	double scale = 1.0,
+	cv::Rect roi = cv::Rect(),
+	cv::Point2d center = cv::Point2d(-1,-1));
+
 // colorspaces
 void rgb_from_yuv(const cv::Mat &Y, const cv::Mat &U, const cv::Mat &V,
 				  cv::Mat &rgb);
@@ -160,8 +176,9 @@ int floodfill_pixel(uint8_t* data, int w, int h,
  * @return maximal found rect square
  */
 int find_rects(cv::Mat &img, uint8_t start_color,
-			uint8_t min_color, uint8_t result_color,
-			std::vector<cv::Rect> &rects, int min_obj_size = 0);
+		uint8_t min_color, uint8_t result_color,
+		std::vector<cv::Rect> &rects,
+		int min_obj_size = 0, int allowed_gap = 1);
 
 /**
  * @brief Find bounding rect for area of start_color and fill it with result_color.
@@ -182,9 +199,56 @@ cv::Rect find_bounding_rect(
 		uint8_t start_color, uint8_t result_color,
 		int start_x, int start_y,
 		int allowed_gap = 1);
+
+/**
+ * @brief Conversion into 8-bit representation.
+ * @param src[in] Input image.
+ * @return Converted image.
+ */
 cv::Mat to8b(const cv::Mat &src);
+
+/**
+ * @brief Conversion into grayscale.
+ * @param src[in] Input image.
+ * @return Converted image.
+ */
 cv::Mat to_gray(const cv::Mat &src);
+
+/**
+ * @brief Conversion into float representation.
+ * @param src[in] Input image.
+ * @return Converted image.
+ */
 cv::Mat to32f(const cv::Mat &src);
+
+/**
+ * Rect out-of-border check.
+ * @param rect [in] Rectangle.
+ * @param mat [in] Image for check.
+ * @return true if rect is out of image borders, false otherwise.
+ */
+bool out_of_border(const cv::Rect &rect, const cv::Mat &mat);
+
+
+/**
+ * @param src [in] One-channel matrix.
+ * @return 2-dimensional statistical expected value (spatial mean).
+*/
+cv::Point2d expected_value(const cv::Mat &src);
+
+
+/**
+ * @param src [in] One-channel matrix.
+ * @return 2-dimensional statistical variance (distance between M[x^2] and expected value).
+ */
+cv::Point2d variance(const cv::Mat &src);
+
+
+/**
+ * @param src [in] One-channel matrix.
+ * @return Median value.
+ */
+double median(const cv::Mat &src);
 
 
 } //namespace imgproc

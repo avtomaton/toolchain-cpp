@@ -50,6 +50,27 @@ std::time_t get_system_time_ms()
 		(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
+std::string get_current_date_and_time()
+{
+	auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+	char time_buf[30];
+	strftime(time_buf, 30, "%F-%T", std::localtime(&now));
+
+	return std::string(time_buf);
+}
+	
+std::string date_time_from_ts(std::chrono::milliseconds ts)
+{
+	static const int DATE_TIME_BUFFER_SIZE = 256;
+	static const std::string IMAGE_NAME_TIME_FORMAT = "%Y-%m-%d-%H:%M:%S";
+	
+	time_t readable_time = ts.count() / 1000;
+	char date_time[DATE_TIME_BUFFER_SIZE];
+	strftime(date_time, sizeof(date_time), IMAGE_NAME_TIME_FORMAT.c_str(), localtime(&readable_time));
+	
+	return date_time;
+}
+	
 #ifdef HAVE_BOOST
 int64_t iso_to_unix_time(const std::string & iso_time)
 {
@@ -92,4 +113,5 @@ int64_t get_current_local_unix_time_ms()
 }
 #endif  // HAVE_BOOST
 
+	
 } //namespace aifil

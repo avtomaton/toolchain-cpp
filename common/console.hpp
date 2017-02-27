@@ -3,6 +3,7 @@
 
 #include <map>
 #include <string>
+#include <vector>
 
 namespace aifil {
 
@@ -31,7 +32,13 @@ void pretty_printf(int level, FILE* fd, const char* buf);
 /**
  * @brief The simplest argument parser.
  *
- * Works only with "-param value" or "--param value" forms
+ * Pretends on python's argparse usability paradigm.
+ * Supports 1 or 2 hyphens as sign of parameter name,
+ * '=' or whitespace between param name and value,
+ * boolean parameters,
+ * positional parameters (but not immediately after boolean parameter
+ * in name without value form: in this case positional parameter will be
+ * interpreted as boolean parameter value).
  */
 struct ArgParser
 {
@@ -41,7 +48,7 @@ struct ArgParser
 	bool has_leading_hyphen(const std::string &param);
 	std::string trim_hyphens(const char *param);
 	std::map<std::string, std::string> params;
-//	std::vector<std::string> positional;
+	std::vector<std::string> positional;
 };
 
 } //namespace aifil

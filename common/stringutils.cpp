@@ -93,6 +93,35 @@ std::vector<std::string> split(const std::string &input, const std::string &deli
 	return elems;
 }
 
+std::vector<std::string> split_by_substr(
+		const std::string &input, const std::string &delim_substr, const bool only_first)
+{
+	std::vector<std::string> elems;
+	size_t cur = 0;
+	size_t next = cur;
+	while (next != std::string::npos)
+	{
+		while (true)
+		{
+			next = input.find(delim_substr, cur);
+			if (next != cur)
+			{
+				break;
+			}
+			else
+				cur += delim_substr.size();
+		}
+		if (next != cur && cur != input.size())
+		{
+			elems.push_back(input.substr(cur, next - cur));
+			if (only_first && elems.size() == 2)
+				break;
+		}
+		cur = next;
+	}
+	return elems;
+}
+
 std::string& ltrim(std::string &s)
 {
 	s.erase(s.begin(), std::find_if(
@@ -122,6 +151,20 @@ bool is_in(const std::string &str, const std::vector<std::string> &lst)
 			return true;
 	}
 	return false;
+}
+
+int hamming(const std::string &str1, const std::string &str2)
+{
+	int ret = 0;
+	size_t size_min = std::min(str1.size(), str2.size());
+	size_t size_max = std::max(str1.size(), str2.size());
+	for (size_t i = 0; i < size_min; i++)
+	{
+		if (str1[i] != str2[i])
+			ret++;
+	}
+	ret += size_max - size_min;
+	return ret;
 }
 
 /*

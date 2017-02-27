@@ -14,8 +14,8 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 set(OBJ_UTILS
 	media-reader.hpp
 	media-reader.cpp
+	media-writer.hpp
+	media-writer.cpp
 )
-include_directories(${CMAKE_SOURCE_DIR}/..)
-include_directories(${CMAKE_SOURCE_DIR})
 
 add_library(aifil-utils-video ${OBJ_UTILS})

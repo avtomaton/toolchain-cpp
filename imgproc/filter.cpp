@@ -36,6 +36,49 @@ cv::Vec2f lin_transform(const cv::Vec2i &minmax, int min_val, int max_val)
 	return cv::Vec2f(A, B);
 }
 
+template<typename outtype>
+cv::Mat_<outtype> convolution(const cv::Mat &src,
+	const cv::Size &window, const std::function<outtype(const cv::Mat &)> &func,
+	cv::BorderTypes border_type)
+{
+	if (src.empty())
+		return cv::Mat_<outtype>();
+
+	if (window.width <= 0 || window.height <= 0)
+		af_exception("convolution: window dimensions should be positive");
+	if (window.width % 2 == 0 || window.height % 2 == 0)
+		af_exception("convolution: window dimensions should be even");
+
+	cv::Mat expsrc;
+	cv::copyMakeBorder(
+			src, expsrc,
+			window.height / 2, window.height / 2,
+			window.width / 2, window.width / 2, border_type);
+
+	cv::Mat_<outtype> dst = cv::Mat_<outtype>(src.size());
+	for (int i = 0; i < dst.rows; ++i)
+	{
+		cv::Mat roiy = expsrc.rowRange(i, i + window.height);
+		auto pdst = dst[i];
+		for (int j = 0; j < dst.cols; ++j)
+		{
+			cv::Mat roi = roiy.colRange(j, j + window.width);
+			pdst[j] = func(roi);
+		}
+	}
+	return dst;
+}
+template
+cv::Mat_<float> convolution(
+		const cv::Mat &src, const cv::Size &window,
+		const std::function<float(const cv::Mat &)> &func,
+		cv::BorderTypes border_type);
+template
+cv::Mat_<int16_t> convolution(
+		const cv::Mat &src, const cv::Size &window,
+		const std::function<int16_t(const cv::Mat &)> &func,
+		cv::BorderTypes border_type);
+
 void blur(const cv::Mat& src, cv::Mat& dst, int type, int size, cv::Mat &tmp)
 {
 	af_assert(src.type() == CV_8UC1);
@@ -306,6 +349,159 @@ float f32_bilinear_1u8(IplImage *img, float x, float y)
 	float col = (1.0f-ky) * col1 + ky * col2;
 
 	return col;
+}
+
+template<typename T>
+cv::Mat_<T> filter_median(
+		const cv::Mat_<T> &src, const cv::Size &size,
+		cv::BorderTypes border_type);
+
+// float specialization
+template<>
+cv::Mat_<float> filter_median(
+		const cv::Mat_<float> &src, const cv::Size &size,
+		cv::BorderTypes border_type)
+{
+	cv::Mat_<float> dst(src.size());
+	cv::Mat_<float> expsrc;
+	cv::copyMakeBorder(
+			src, expsrc,
+			size.height / 2, size.height / 2,
+			size.width / 2, size.width/2, border_type);
+
+	std::vector<float> array(size.width * size.height);
+	for (int i = 0; i < dst.rows; ++i)
+	{
+		cv::Mat_<float> roiy = expsrc.rowRange(i, i + size.height);
+		auto dst_data = dst[i];
+		for (int j = 0; j < dst.cols; ++j)
+		{
+			cv::Mat_<float> roi = roiy.colRange(j, j + size.width);
+
+			for (int y = 0; y < roi.rows; ++y)
+				std::copy(roi[y], roi[y] + roi.cols, array.begin() + y * roi.cols);
+			std::nth_element(array.begin(), array.begin() + array.size() / 2, array.end());
+			dst_data[j] = array[array.size()/2];
+		}
+	}
+	return dst;
+}
+
+cv::Mat filter_median(
+		const cv::Mat &src, const cv::Size &size,
+		cv::BorderTypes border_type)
+{
+	if (src.empty())
+		return cv::Mat();
+
+	if (size.width <= 0 || size.height <= 0)
+		af_exception("median filter: window dimensions should be positive");
+	if (size.width % 2 == 0 || size.height % 2 == 0)
+		af_exception("median filter: window dimensions should be even");
+
+	if (size.width == size.height &&
+		(src.type() == CV_8U || size.width <= 5))
+	{
+		cv::Mat dst;
+		cv::medianBlur(src, dst, size.width);
+		return dst;
+	}
+
+	if (src.type() != CV_32FC1)
+		af_exception(
+				"median filter: for non-rectangular kernel with size > 5 only"
+				"float images are supported");
+
+	return filter_median<float>(src, size, border_type);
+}
+
+cv::Mat_<float> filter_adaptive_median(
+		const cv::Mat &src, const cv::Size &window, cv::BorderTypes borderType)
+{
+	if (src.empty())
+		return cv::Mat_<float>();
+
+	if (window.width <= 0 || window.height <= 0)
+		af_exception("adaptive median filter: window dimensions should be positive");
+
+	if (window.width % 2 == 0 || window.height % 2 == 0)
+		af_exception("adaptive median filter: window dimensions should be even");
+
+	cv::Mat tmp = to32f(src);
+	std::function<float(const cv::Mat &)> op_func =
+	[](const cv::Mat &img)->float
+	{
+		float m = float(median(img));
+		float v = img.at<float>(img.rows / 2, img.cols / 2);
+		return v - m;
+	};
+
+	return convolution(tmp, window, op_func);
+}
+
+// cv::Mat img = ...;
+// hef<cv::Vec3f>(img, lower, upper, threshold);
+// High-pass filter (Butterworth?)
+// TODO: check: x^2 + y^2 OR (x - center_x)^2 + (y - center_y)^2
+template<typename type>
+void hef(cv::Mat &img, float lower, float upper, float threshold)
+{
+	for (int y = 0; y < img.rows; y++)
+	{
+		auto ptr = img.ptr<type>(y);
+		float y2 = y * y;
+		for (int x = 0; x < img.cols; x++)
+		{
+			float r = sqrtf(x * x + y2);
+			float coeff = lower + (upper - lower) *
+					(1.0f - 1.0f / (1.0f + expf(r - threshold)));
+			ptr[x] *= coeff;
+		}
+	}
+}
+
+// cv::Mat_<cv::Vec3f> img32fc3 = ...;
+// hef(img32fc3, lower, upper, threshold);
+template<typename type>
+void hef(cv::Mat_<type> &img, float lower, float upper, float threshold)
+{
+	cv::Mat tmp = img;
+	hef<type>(tmp, lower, upper, threshold);
+}
+
+void filter_homomorphic_uc1(
+		const cv::Mat &img, cv::Mat &dst, float lower, float upper, float threshold)
+{
+	cv::Mat_<float> tmp(img.size());
+	cv::Mat_<float> tmp1(img.size());
+	img.convertTo(tmp, CV_32FC1, 1.0 / 255.0);
+	cv::dct(tmp, tmp1);
+	hef(tmp1, lower, upper, threshold);
+	cv::idct(tmp1, tmp);
+	tmp.convertTo(dst, CV_8UC1, 255.0);
+}
+
+void filter_homomorphic_uc3(
+		const cv::Mat &img, cv::Mat &dst, float lower, float upper, float threshold)
+{
+	std::vector<cv::Mat> chs;
+	cv::split(img, chs);
+
+	for (auto &ch: chs)
+		filter_homomorphic_uc1(ch, ch, lower, upper, threshold);
+
+	cv::merge(chs, dst);
+}
+
+void filter_homomorphic(
+		const cv::Mat& img, cv::Mat& output, float lower, float upper, float threshold)
+{
+	af_assert(img.type() == CV_8UC1 || img.type() == CV_8UC3);
+
+	if (img.channels() == 1)
+		filter_homomorphic_uc1(img, output, lower, upper, threshold);
+	else
+		filter_homomorphic_uc3(img, output, lower, upper, threshold);
 }
 
 void histogram_local(const cv::Mat &src, std::vector<std::vector<int> > &hists,

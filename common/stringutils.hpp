@@ -10,10 +10,10 @@
 
 #ifdef _WIN32
 #define STDIO_U64F "%I64x"
-#elif __x86_64__
-#define STDIO_U64F "%lx"
-#else
+#elif defined (__x86_64__) || defined (__x86_64)
 #define STDIO_U64F "%llx"
+#else
+#define STDIO_U64F "%lx"
 #endif
 
 namespace aifil {
@@ -34,6 +34,9 @@ std::string percent_str(int part, int total, const std::string &prefix = "");
 std::vector<std::string> split(const std::string &s, char delim);
 // split by ANY symbol combinations in delimiters
 std::vector<std::string> split(const std::string &s, const std::string &delimiters);
+// split by selected substring
+std::vector<std::string> split_by_substr(
+		const std::string &s, const std::string &delim_substr, const bool only_first = false);
 
 std::string& ltrim(std::string &s);  // trim from begin
 std::string& rtrim(std::string &s);  // trim from end
@@ -42,6 +45,8 @@ std::string& strip(std::string &s);
 // for using like this:
 // if (is_in("test", {"train", "test", "install"})) do_something();
 bool is_in(const std::string &str, const std::vector<std::string> &lst);
+
+int hamming(const std::string &str1, const std::string &str2);
 
 //typedef std::list<std::string> csv_list;
 

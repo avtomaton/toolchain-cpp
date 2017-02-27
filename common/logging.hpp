@@ -2,6 +2,8 @@
 #define AIFIL_UTILS_LOGGING_H
 
 #include <string>
+#include <chrono>
+#include <fstream>
 
 namespace aifil {
 
@@ -28,6 +30,7 @@ void log_important(const char *fmt, ...);
 void log_warning(const char *fmt, ...);
 void log_error(const char *fmt, ...);
 void log_ok(const char* fmt, ...);
+void log_custom(int loglevel, const char* fmt, ...);
 
 void log_debug(const std::string & msg);
 void log_raw(const std::string & msg);
@@ -36,7 +39,7 @@ void log_important(const std::string & msg);
 void log_warning(const std::string & msg);
 void log_error(const std::string & msg);
 void log_ok(const std::string & msg);
-
+void log_custom(int loglevel, const std::string &msg);
 
 //don't write to console
 void log_quiet(const char* fmt, ...);
@@ -47,7 +50,10 @@ void log_quiet(const char* fmt, ...);
  * Usually stderr or stdout should be used here,
  * but any alive file descriptor can be used as well.
  * BE CAREFUL, your app can become silent if you pass null pointer here!
- * @param log_level [in] 0 - default, 1 - enable debug logs
+ * @param log_level [in] LOG_LEVEL flag or custom integer value for custom logs.
+ * Levels from LOG_LEVEL can be combined using bitwise OR.
+ * In case of user log level (i. e. not any reserved level) it should be
+ * MORE THAN 0x1000.
  * @param directory_to_write_logs Folder for writing logs.
  * @param directory_to_save_crashlogs Folder for writing crash dumps.
  * @param logfile_name log file name

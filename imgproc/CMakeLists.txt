@@ -21,9 +21,6 @@ if (FFMPEG_FOUND)
 	list(APPEND AIFIL_UTILS_IMGPROC_DEPS ${FFMPEG_LIBS})
 endif()
 
-include_directories(${CMAKE_SOURCE_DIR}/..)
-include_directories(${CMAKE_SOURCE_DIR})
-
 set(OBJ_UTILS
 	filter.cpp
 	filter.hpp

@@ -97,6 +97,14 @@ void rmtree(const std::string &path);
 bool makedirs(const std::string &path);
 
 /**
+ * @brief Copy file.
+ @param from [in]
+ @param to [in]
+ */
+void copy(const std::string &from, const std::string &to);
+
+
+/**
  * @brief Recursive directory structure copying from prototype structure.
  * Files in the source directory are ignored.
  * @param prototype [in] Path with desired directory structure.
@@ -156,9 +164,15 @@ std::string stem(const std::string &str);
  * @code{.cpp}
  * std::string file_name = extension("path/to/my-file.txt");  // returns ".txt"
  * @endcode
- * @return File name without extension
+ * @return File extension.
  */
 std::string extension(const std::string &str);
+
+/**
+ * @param path [in] Path in filesystem.
+ * @return Object type (folder, regular file, symlink, other).
+ */
+PATH_TYPE path_type(const std::string &path);
 
 template<typename T>
 int read_value_binary(std::istream &stream, T *val, int count = 1)

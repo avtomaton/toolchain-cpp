@@ -1,6 +1,7 @@
 #include "console.hpp"
 
 #include "errutils.hpp"
+#include "stringutils.hpp"
 
 #include <stdint.h>
 #include <cstdio>
@@ -171,6 +172,7 @@ void ArgParser::parse_args(int argc, char *argv[])
 		// skip positioning parameters
 		if (!has_leading_hyphen(argv[opt_count]))
 		{
+			positional.emplace_back(argv[opt_count]);
 			++opt_count;
 			continue;
 		}
@@ -183,17 +185,26 @@ void ArgParser::parse_args(int argc, char *argv[])
 			continue;
 		}
 
-		++opt_count;
 		std::string param_value;
-		if (opt_count < argc)
+		++opt_count;
+		if (param_name.find("=") != std::string::npos)
+		{
+			auto vals = aifil::split(param_name, '=');
+			param_name = vals[0];
+			if (vals.size() > 1)
+				param_value = vals[1];
+		}
+		else if (opt_count < argc)
+		{
 			param_value = argv[opt_count];
 
-		// boolean parameters support: if have hyphens it is the next parameter,
-		// not parameter value
-		if (has_leading_hyphen(param_value))
-			param_value.clear();
-		else
-			++opt_count;
+			// boolean parameters support: if have hyphens it is the next parameter,
+			// not parameter value
+			if (has_leading_hyphen(param_value))
+				param_value.clear();
+			else
+				++opt_count;
+		}
 
 		params[param_name] = param_value;
 	}

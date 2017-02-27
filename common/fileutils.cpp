@@ -165,6 +165,12 @@ bool makedirs(const std::string &path)
 	return true;
 }
 
+void copy(const std::string &from, const std::string &to)
+{
+	fs::copy(fs::path(from), fs::path(to));
+}
+
+
 void dir_tree_create(const std::string &prototype, const std::string &target_path)
 {
 	makedirs(target_path);
@@ -236,6 +242,22 @@ std::string extension(const std::string &path)
 	return splitext(filename(path)).second;
 }
 
+PATH_TYPE path_type(const std::string &path)
+{
+#ifdef HAVE_BOOST
+	if (fs::is_directory(path))
+		return PATH_FOLDER;
+	else if (fs::is_regular_file(path))
+		return PATH_FILE;
+	else if (fs::is_symlink(path))
+		return PATH_SYMLINK;
+	else
+		return PATH_OTHER;
+#else
+	static_assert(!"Not implemented without boost");
+#endif
+}
+
 bool file_exists(const std::string &filename)
 {
 	std::ifstream in_file(filename.c_str());
@@ -253,5 +275,29 @@ int line_count_in_file(const std::string &file_name)
 		num++;
 	return num;
 }
+
+
+/*
+ * TODO: create all tests and move this code into them
+TEST(StorageMonitorTest, create_path_for_image_if_needed)
+{
+	std::string parent_path = "dir2/dir3/img/2016-12-08";
+	EXPECT_FALSE(exists(parent_path));
+
+	aifil::makedirs(img_path);(parent_path);
+	EXPECT_TRUE(exists(parent_path));
+
+	std::string file_path = parent_path + "/file";
+	std::ofstream file(file_path);
+	file.close();
+
+	create_path_for_image_if_needed(parent_path);
+	EXPECT_TRUE(is_regular_file(file_path));
+
+	remove_all(*path(parent_path).begin());
+	EXPECT_FALSE(exists(*path(parent_path).begin()));
+}
+
+*/
 
 } //namespace aifil

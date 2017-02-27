@@ -6,6 +6,8 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/video/video.hpp>
 #include <opencv2/imgproc/types_c.h>
+
+#include <functional>
 #include <vector>
 
 namespace aifil {
@@ -29,6 +31,21 @@ int power_law_function(int color, float A, float B);
 int lin_function(int color, float A, float B);
 cv::Vec2f lin_transform(const cv::Vec2i &minmax, int min_val, int max_val);
 
+/**
+ * @brief Convolutional with custom filter.
+ * @param src [in] input matrix.
+ * @param window [in] Convolution window size.
+ * @param func [in] Convolution kernel function.
+ * @param border_type [in] Border type.
+ * @return Output matrix.
+ */
+
+template<typename outtype>
+cv::Mat_<outtype> convolution(
+	const cv::Mat &src,
+	const cv::Size &window, const std::function<outtype(const cv::Mat &)> &func,
+	cv::BorderTypes border_type = cv::BORDER_REFLECT_101);
+
 void blur(const cv::Mat& src, cv::Mat& dst, int type, int size, cv::Mat &tmp);
 void erode_dilate(cv::Mat &img);
 void sobel(const cv::Mat &src, cv::Mat &dst, int dx, int dy, int ksize = 3);
@@ -39,6 +56,42 @@ void gradient(const cv::Mat &src, cv::Mat &angle, cv::Mat &magnitude,
 void gradient2(const cv::Mat &src, cv::Mat &angle, cv::Mat &magnitude,
 	int threshold = 0, int ksize = 3);
 float f32_bilinear_1u8(IplImage *img, float x, float y);
+
+/**
+ * Median filter.
+ * @param src [in] Input image.
+ * @param size [in] Filter window size.
+ * @return filtered image.
+ */
+cv::Mat filter_median(
+		const cv::Mat &src, const cv::Size &size,
+		cv::BorderTypes borderType = cv::BORDER_WRAP);
+
+/**
+ * Adaptive median filter.
+ * @param src [in] input image.
+ * @param size [in] Filter window size.
+ * @return filtered image.
+ */
+cv::Mat_<float> filter_adaptive_median(
+		const cv::Mat &src, const cv::Size &window,
+		cv::BorderTypes border_type = cv::BORDER_WRAP);
+
+/**
+ * @brief Homomorphic filtering (mapping image to domain where linear filters works).
+ * tmp = DCT(img)
+ * for each element: tmp(y, x) *= lower +
+ * (upper - lower) * (1 - 1 / (1 + exp(sqrt(x^2 + y^2) - threshold)))
+ * output = iDCT(tmp)
+ * @param img[in] Input image.
+ * @param output[out] Filtered image.
+ * @param lower[in] See above description.
+ * @param upper[in] See above description.
+ * @param threshold[in] See above description.
+ */
+void filter_homomorphic(
+		const cv::Mat& img, cv::Mat& output,
+		float lower, float upper, float threshold);
 
 // channel adjustment
 void channel_linear_stretch(const cv::Mat &src, cv::Mat &dst,

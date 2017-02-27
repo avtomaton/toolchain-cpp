@@ -37,6 +37,7 @@ set(OBJ_UTILS
 	timeutils.cpp
 	timeutils.hpp
 	c_attribs.hpp
-)
+	adjacency-matrix.cpp adjacency-matrix.h)
 
 add_library(aifil-utils-common ${OBJ_UTILS})
+

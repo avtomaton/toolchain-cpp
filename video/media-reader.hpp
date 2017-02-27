@@ -7,11 +7,13 @@
 #include <list>
 #include <memory>
 
+
 namespace cv {
 class VideoCapture;
 }
 
 namespace aifil {
+
 
 class MovieReader
 {
@@ -19,26 +21,31 @@ public:
 	MovieReader(const std::string &filename);
 	~MovieReader();
 
-	// return current frame num
-	int get_frame(int frame = -1);
-	int cur_frame_num();
-
-	int w, h;
-	uint8_t* Y;
+	int w, h;	///< ширина, высота
+	// Переменные одноимённого цветогого пространства YUV:
+	uint8_t* Y;	///< яркость
+	uint8_t* U;	///< компонент цветности
+	uint8_t* V;	///< и ещё один компонент цветности
 	int rs_Y;
-	uint8_t* U;
 	int rs_U;
-	uint8_t* V;
 	int rs_V;
 
 	std::string info;
 private:
-	struct MovieReaderInternals* p;
+	struct MovieReaderInternals* reader_internals;
 	uint8_t *data;
+
+public:
+	// return current frame num
+	int get_frame(int frame = -1);
+	int cur_frame_num();
 };
 
-struct SequentalReader
+struct SequentialReader
 {
+	SequentialReader() : movie(0), cv_movie(0), wanted_fps(25), cur_frame_num(0) {}
+	~SequentialReader();
+
 	MovieReader *movie;
 	cv::VideoCapture *cv_movie;
 	std::list<std::string> photos;
@@ -49,9 +56,6 @@ struct SequentalReader
 	int cur_frame_num;
 	std::string cur_frame_name;
 	std::shared_ptr<MatCache> cur_frame;
-
-	SequentalReader() : movie(0), cv_movie(0), wanted_fps(25), cur_frame_num(0) {}
-	~SequentalReader();
 
 	void setup(const std::string &path, int fps = 25);
 	bool feed_frame();
