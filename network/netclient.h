@@ -13,7 +13,7 @@ class NetClient {
 public:
 	NetClient(const std::string &host_);
 	virtual ~NetClient();
-
+	
 private:
 	CURL* curl_handle;
 	std::string host;
@@ -26,6 +26,11 @@ public:
 						  const std::string &path = "") const;
 	CURLcode send_json(const std::map<std::string, std::string> &parameters);
 	CURLcode send_json(const std::string &json_data);
+	
+	CURLcode send_file(FILE *const file, const std::string & filename);
+	
+	
+	long get_last_response_code();
 };
 
 

@@ -77,7 +77,7 @@ int64_t iso_to_unix_time(const std::string & iso_time)
 	std::string time_string = iso_time;
 	size_t pos = time_string.find(' ');
 
-	if (pos > 0)
+	if (pos != std::string::npos)
 		time_string[pos] = 'T';
 
 	boost::posix_time::ptime time_stamp_iso =

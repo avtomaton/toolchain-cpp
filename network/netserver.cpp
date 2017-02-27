@@ -6,104 +6,6 @@
 #include <common/stringutils.hpp>
 
 
-void HttpRequestParser::parse(const std::string &request_str, SimpleHttpRequest &out_request) const
-{
-	std::vector<std::string> split_str = aifil::split_by_substr(request_str, " ");
-	if (split_str.size() < 2)
-		af_exception("Invalid http header: " << request_str);
-	if (split_str[0] == "GET")
-	{
-		out_request.method = SimpleHttpRequest::GET;
-		out_request.url = split_str[1];
-		parse_url(out_request.url, out_request);
-	}
-	else if (split_str[0] == "POST")
-	{
-		out_request.method = SimpleHttpRequest::POST;
-		out_request.url = split_str[1];
-		parse_url(out_request.url, out_request);
-		std::string last = *split_str.rbegin();
-		split_str = aifil::split_by_substr(last, "\r\n");
-		if (split_str.size() == 2)
-			parse_params(split_str[1], out_request.params);
-	}
-}
-
-void HttpRequestParser::parse_url(const std::string &url, SimpleHttpRequest &out_request) const
-{
-	std::vector<std::string> split_str = aifil::split_by_substr(url, "://", true);
-	if (split_str.empty())
-		af_exception("Invalid url: " << url);
-	std::string path;
-	if (split_str.size() == 1)
-	{
-		out_request.protocol = "";
-		path = split_str[0];
-	}
-	else
-	{
-		out_request.protocol = split_str[0];
-		path = split_str[1];
-	}
-	// parse path
-	split_str = aifil::split_by_substr(path, "/", true);
-	if (split_str.empty())
-		af_exception("Invalid url: " << url);
-	std::string host_port;
-	std::string rel_path;
-	if (split_str.size() == 1)
-	{
-		host_port = "";
-		rel_path = "/" + split_str[0];
-	}
-	else
-	{
-		host_port = split_str[0];
-		rel_path = split_str[1];
-	}
-	// parse host_port
-	if (!host_port.empty())
-	{
-		split_str = aifil::split_by_substr(host_port, ":", true);
-		if (split_str.empty())
-			af_exception("Invalid url: " << url);
-		if (split_str.size() == 1)
-		{
-			out_request.host = split_str[0];
-			out_request.port = "";
-		}
-		else
-		{
-			out_request.host = split_str[0];
-			out_request.port = split_str[1];
-		}
-	}
-	// parse rel_path
-	if (!rel_path.empty())
-	{
-		split_str = aifil::split_by_substr(rel_path, "?", true);
-		if (split_str.empty())
-			af_exception("Invalid url: " << url);
-		out_request.relative_path = split_str[0];
-		if (split_str.size() >= 2)
-			parse_params(split_str[1], out_request.params);
-	}
-}
-
-void HttpRequestParser::parse_params(
-		const std::string &params_str, std::map<std::string, std::string> &out_params) const
-{
-	out_params.clear();
-	std::vector<std::string> split_str = aifil::split_by_substr(params_str, "&");
-	for (const std::string &key_val_str : split_str)
-	{
-		std::vector<std::string> key_val = aifil::split_by_substr(key_val_str, "=");
-		if (key_val.size() != 2)
-			af_exception("Invalid http params string: " << params_str);
-		out_params[key_val[0]] = key_val[1];
-	}
-}
-
 NetServer::NetServer(int port_) :
 		port(port_),
 		in_buffer(BUFFER_SIZE)
@@ -198,6 +100,7 @@ void NetServer::on_error(const std::string &err_msg)
 
 void NetServer::on_read(const boost::system::error_code &error, std::size_t len)
 {
+	bool final_read = false;
 	try
 	{
 		if (error == boost::asio::error::eof)
@@ -209,15 +112,21 @@ void NetServer::on_read(const boost::system::error_code &error, std::size_t len)
 		if(error.value() != 0)
 			af_exception("Socket error: " << error.message());
 		
-		process_read(error, len);
+		final_read = process_read(error, len);
+
+		if (final_read)
+			new_accept();
+		else
+			socket->async_read_some(boost::asio::buffer(in_buffer), std::bind(
+					&NetServer::on_read, this,
+					std::placeholders::_1, std::placeholders::_2));
 	}
 	catch (const std::exception & e)
 	{
 		std::string err_msg(e.what());
 		on_error(err_msg);
+		new_accept();
 	}
-	
-	new_accept();
 }
 
 HttpServer::HttpServer(int port_) :
@@ -250,12 +159,34 @@ HttpServer::~HttpServer()
 	curl_global_cleanup();
 }
 
-void HttpServer::process_read(const boost::system::error_code &error, std::size_t len)
+bool HttpServer::process_read(const boost::system::error_code &error, std::size_t len)
 {
-	std::string header_str(in_buffer.begin(), in_buffer.begin() + len);
+	bool final_read = false;
+	size_t char_counter = 0;
+	for (const char c: in_buffer)
+	{
+		final_read = http_splitter.push_char(c);
+		char_counter++;
+		if (final_read || char_counter >= len)
+			break;
+	}
+
+	if (!final_read)
+		return false;
+
+	//std::string header_str(in_buffer.begin(), in_buffer.begin() + len);
 	SimpleHttpRequest request;
 	HttpRequestParser parser;
-	parser.parse(header_str, request);
+	//parser.parse(header_str, request);
+	
+	try
+	{
+		parser.parse_url(http_splitter.url(), request);
+	}
+	catch (const std::exception & e)
+	{
+		aifil::log_error(e.what());
+	}
 	
 	std::string unescape_path = unescape(request.relative_path);
 	std::map<std::string, std::string> unescape_params;
@@ -278,10 +209,15 @@ void HttpServer::process_read(const boost::system::error_code &error, std::size_
 		index += len;
 	}
 	
-	if (request.method == SimpleHttpRequest::GET)
+	if (http_splitter.method() == "GET")
 		on_get(unescape_path, unescape_params, unescaped_url);
-	else if (request.method == SimpleHttpRequest::POST)
-		on_post(unescape_path, unescape_params, unescaped_url);
+	else if (http_splitter.method() == "POST")
+		on_post(unescape_path, unescape_params, http_splitter.content(), unescaped_url);
+	else if (http_splitter.method() == "PUT")
+		on_put(http_splitter.download_filename(), http_splitter.content());
+	
+	http_splitter.reset();
+	return true;
 }
 
 std::string HttpServer::unescape(const std::string &src)
@@ -308,7 +244,7 @@ void HttpServer::send(const std::string &send_data)
 	std::vector<char> out_buffer;
 	out_buffer.clear();
 	out_buffer.insert(out_buffer.end(), send_data.begin(), send_data.end());
-	if (out_buffer.size() < SYNC_DATA_TRESHOLD)
+	if (out_buffer.size() < SYNC_DATA_THRESHOLD)
 		socket->async_send(
 				boost::asio::buffer(out_buffer, out_buffer.size()),
 					std::bind(&HttpServer::on_send, this,

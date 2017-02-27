@@ -14,4 +14,9 @@ set(NETSERVER_FILES
     netserver.cpp
 )
 
-add_library(aifil-utils-network ${NETCLIENT_FILES} ${NETSERVER_FILES})
+set(COMMON_FILES
+	http-common.hpp
+    http-common.cpp
+)
+
+add_library(aifil-utils-network ${NETCLIENT_FILES} ${NETSERVER_FILES} ${COMMON_FILES})

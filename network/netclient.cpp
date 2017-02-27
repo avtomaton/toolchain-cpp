@@ -5,6 +5,9 @@
 #include <common/errutils.hpp>
 
 #include "netclient.h"
+#include "http-common.hpp"
+
+#include <sys/stat.h>
 
 
 NetClient::NetClient(const std::string &host_) :
@@ -78,17 +81,52 @@ CURLcode NetClient::send_json(const std::string &json_data)
 {
 	// Настраиваем формат json.
 	curl_slist *headers = nullptr;
-	headers = curl_slist_append(headers, "content-type: application/json");
+	headers = curl_slist_append(
+			headers,
+	        (http::CONTENT_TYPE + ": " + http::CONTENT_TYPE_JSON).c_str()
+	);
+	
 	headers = curl_slist_append(headers, "charsets: utf-8");
 
 	curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, headers);
 	curl_easy_setopt(curl_handle, CURLOPT_URL, host.c_str());
 	curl_easy_setopt(curl_handle, CURLOPT_POST, 1);
 	curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, json_data.c_str());
-
-	return curl_easy_perform(curl_handle);
+	
+	return curl_easy_perform (curl_handle);
 }
 
+CURLcode NetClient::send_file(FILE *const file, const std::string & filename)
+{
+	curl_slist *headers = nullptr;
+	headers = curl_slist_append(headers, "charsets: utf-8");
+	headers = curl_slist_append(
+			headers,
+			(http::CONTENT_DISPOSITION + ": filename=\"" + filename + "\"").c_str()
+	);
+	
+	headers = curl_slist_append(headers, (http::CONTENT_TYPE + ": " + http::CONTENT_TYPE_FILE).c_str());
+	
+	struct stat file_info;
+	if(fstat(fileno(file), &file_info) != 0)
+		aifil::except("cant figure out size of file");
+	
+	curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, headers);
+	curl_easy_setopt(curl_handle, CURLOPT_URL, host.c_str());
+	curl_easy_setopt(curl_handle, CURLOPT_UPLOAD, 1L);
+	curl_easy_setopt(curl_handle, CURLOPT_READDATA, file);
+	curl_easy_setopt(curl_handle, CURLOPT_INFILESIZE_LARGE, (curl_off_t)file_info.st_size);
+	//curl_easy_setopt(curl_handle, CURLOPT_VERBOSE, 1L);
+	
+	return curl_easy_perform (curl_handle);
+}
+
+long  NetClient::get_last_response_code()
+{
+	long http_code = 0;
+	curl_easy_getinfo(curl_handle, CURLINFO_RESPONSE_CODE, &http_code);
+	return http_code;
+}
 
 std::string map_to_string_parser(const std::map<std::string, std::string> &map_data)
 {
