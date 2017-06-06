@@ -234,10 +234,25 @@ void HttpStreamSplitter::process_line_buffer()
 			
 			if (tokens[0] == http::UPPER_CONTENT_DISPOSITION)
 			{
+				// не знаю почему, но регекспы здесь не работают
+				// временно используем дедовский метод
+				// TODO разобраться в проблеме
+				/*
 				std::regex rgx(".*filename=\"(.[^\"]*)\".*");
 				std::smatch match;
 				if (std::regex_search(tokens[1], match, rgx))
 					download_name = match[1];
+				*/
+
+				size_t start_ind = tokens[1].find('\"');
+				if (start_ind != std::string::npos)
+				{
+					start_ind++;
+					size_t end_ind = 0;
+					end_ind = tokens[1].find('\"', start_ind);
+					if  (end_ind != std::string::npos)
+						download_name = tokens[1].substr(start_ind, end_ind - start_ind);
+				}
 			}
 
 			if (tokens[0] == http::UPPER_CONTENT_LENGTH)

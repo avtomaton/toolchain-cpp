@@ -1,13 +1,23 @@
 #include "stringutils.hpp"
+#include "errutils.hpp"
 
 #include <algorithm>
+
 #include <functional>
+#include <locale>
 #include <sstream>
+
 #include <cstdarg>
 #include <cstring>
 #include <cstdio>
 #include <ctime>
 #include <cctype>
+
+#define GNUC_4_8 __GNUC__ == 4 && __GNUC_MINOR__ == 8
+#if GNUC_4_8
+#else
+#include <codecvt>
+#endif
 
 #if defined(_MSC_VER) && _MSC_VER <= 1310
 #define vsnprintf _vsnprintf
@@ -165,6 +175,129 @@ int hamming(const std::string &str1, const std::string &str2)
 	}
 	ret += size_max - size_min;
 	return ret;
+}
+
+Base64Encoding::Base64Encoding() :
+	encoding_table({
+		'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
+		'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f',
+		'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
+		'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'}),
+	mod_table({0, 2, 1})
+{
+	decoding_table = create_decoding_table();
+}
+
+void Base64Encoding::encode(const std::vector<char> &src, std::string &dst)
+{
+	// читаем в буффер
+//	std::vector<char> data((
+//			std::istreambuf_iterator<char>(in_stream)),
+//			std::istreambuf_iterator<char>());
+
+	dst.clear();
+
+	// кодируем
+
+	int input_length = src.size();
+	int output_length = 4 * ((input_length + 2) / 3);
+
+	for (int i = 0; i < input_length;)
+	{
+		uint32_t octet_a = i < input_length ? (unsigned char)src[i++] : 0;
+		uint32_t octet_b = i < input_length ? (unsigned char)src[i++] : 0;
+		uint32_t octet_c = i < input_length ? (unsigned char)src[i++] : 0;
+		uint32_t triple = (octet_a << 0x10) + (octet_b << 0x08) + octet_c;
+
+		dst.push_back(encoding_table[(triple >> 3 * 6) & 0x3F]);
+		dst.push_back(encoding_table[(triple >> 2 * 6) & 0x3F]);
+		dst.push_back(encoding_table[(triple >> 1 * 6) & 0x3F]);
+		dst.push_back(encoding_table[(triple >> 0 * 6) & 0x3F]);
+	}
+
+	for (int i = 0; i < mod_table[input_length % 3]; i++)
+		dst[output_length - 1 - i] = '=';
+}
+
+void Base64Encoding::decode(const std::string & src, std::vector<char> &dst)
+{
+	dst.clear();
+	size_t input_length = src.size();
+
+	if (input_length % 4 != 0)
+		af_exception("corrupt base 64 encoding");
+
+	size_t output_length = input_length / 4 * 3;
+	if (src[input_length - 1] == '=') output_length--;
+	if (src[input_length - 2] == '=') output_length--;
+
+	dst.resize(output_length);
+
+	for (size_t i = 0, j = 0; i < input_length;)
+	{
+		uint32_t sextet_a = src[i] == '=' ? 0U & i++ : decoding_table[src[i++]];
+		uint32_t sextet_b = src[i] == '=' ? 0U & i++ : decoding_table[src[i++]];
+		uint32_t sextet_c = src[i] == '=' ? 0U & i++ : decoding_table[src[i++]];
+		uint32_t sextet_d = src[i] == '=' ? 0U & i++ : decoding_table[src[i++]];
+
+		uint32_t triple =
+				(sextet_a << 3 * 6)
+				+ (sextet_b << 2 * 6)
+				+ (sextet_c << 1 * 6)
+				+ (sextet_d << 0 * 6);
+
+		if (j < output_length)
+			dst[j++] = static_cast<char>((triple >> 2 * 8) & 0xFF);
+		if (j < output_length)
+			dst[j++] = static_cast<char>((triple >> 1 * 8) & 0xFF);
+		if (j < output_length)
+			dst[j++] = static_cast<char>((triple >> 0 * 8) & 0xFF);
+	}
+}
+
+std::vector<char> Base64Encoding::create_decoding_table()
+{
+	std::vector<char> table(256);
+	for (char i = 0; i < 64; i++)
+		table[(unsigned char) encoding_table[i]] = i;
+	return table;
+}
+
+void base64_encode(const std::vector<char> & src, std::string &dst)
+{
+	Base64Encoding().encode(src, dst);
+}
+
+void base64_decode(const std::string & src, std::vector<char> &dst)
+{
+	Base64Encoding().decode(src, dst);
+}
+
+namespace utf8 {
+#if GNUC_4_8
+#else
+		static std::wstring_convert<std::codecvt_utf8<char_t>, char_t> convert;
+#endif
+
+std::string encode(const string &str)
+{
+#if GNUC_4_8
+#else
+	return convert.to_bytes(str);
+#endif
+	af_assert(true); //not implemented
+}
+
+utf8::string decode(const std::string &str)
+{
+#if GNUC_4_8
+#else
+	return convert.from_bytes(str);
+#endif
+	af_assert(true); //not implemented
+}
+		
+
 }
 
 /*

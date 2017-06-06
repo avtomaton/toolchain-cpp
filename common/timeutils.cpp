@@ -111,6 +111,36 @@ int64_t get_current_local_unix_time_ms()
 
 	return (microsec_clock::local_time() - epoch).total_milliseconds();
 }
+
+bool parse_datetime(const std::string &datetime, int64_t &utc, const std::string &format)
+{
+	utc = 0;
+	try
+	{
+		std::stringstream ss(datetime);
+		const boost::local_time::local_time_input_facet *ifc =
+				new boost::local_time::local_time_input_facet(format);
+		ss.imbue(std::locale(ss.getloc(), ifc));
+		// освобождением памяти ifc занимается std::locale,
+		// поэтому утечки памяти не будет
+		// НЕ удалять вручную!
+		// http://stackoverflow.com/questions/17779660/who-is-responsible-for-deleting-the-facet/17779731#17779731
+
+		boost::local_time::local_date_time ldt(boost::local_time::not_a_date_time);
+		if (!(ss >> ldt))
+			return false;
+		boost::posix_time::ptime const time = ldt.utc_time();
+		boost::posix_time::ptime const epoch(boost::gregorian::date(1970, 1, 1));
+		utc = (time - epoch).total_milliseconds();
+	}
+	catch (...)
+	{
+		return false;
+	}
+
+	return true;
+}
+
 #endif  // HAVE_BOOST
 
 	

@@ -48,6 +48,34 @@ bool is_in(const std::string &str, const std::vector<std::string> &lst);
 
 int hamming(const std::string &str1, const std::string &str2);
 
+class Base64Encoding
+{
+public:
+	Base64Encoding();
+
+	void encode(const std::vector<char> &src, std::string &dst);
+	void decode(const std::string &src, std::vector<char> &dst);
+
+private :
+	std::vector<char> create_decoding_table();
+
+	const std::vector<char> encoding_table;
+	const std::vector<int> mod_table;
+	std::vector<char> decoding_table;
+};
+
+void base64_encode(const std::vector<char> &src, std::string &dst);
+void base64_decode(const std::string &src, std::vector<char> &dst);
+
+namespace utf8
+{
+typedef char16_t char_t;
+typedef std::u16string string;
+
+std::string encode(const string &str);
+string decode(const std::string &str);
+}
+
 //typedef std::list<std::string> csv_list;
 
 //int short_notation_compare_predicate(const std::string& left, const std::string& right);
@@ -70,14 +98,6 @@ int hamming(const std::string &str1, const std::string &str2);
 
 //std::string escape_string(const std::string& uri);
 //std::string unescape_string(const std::string& uri);
-
-//std::vector<uint32_t> utf8_decode(const char* text);
-
-//std::string base64_decode(const std::string&);
-//std::string base64_encode(const std::string&);
-
-//std::string miniz_compress(const std::string&);
-//std::string miniz_uncompress(const std::string&);
 
 } //namespace aifil
 

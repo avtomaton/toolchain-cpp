@@ -5,132 +5,13 @@
 #include <common/errutils.hpp>
 #include <common/stringutils.hpp>
 
+#include <boost/property_tree/json_parser.hpp>
 
-NetServer::NetServer(int port_) :
-		port(port_),
-		in_buffer(BUFFER_SIZE)
-{
-	
-}
 
-NetServer::~NetServer()
-{
-	stop();
-	join();
-}
-
-void NetServer::async_run()
-{
-	thread = std::make_shared<std::thread>(std::bind(&NetServer::main, this));
-}
-
-void NetServer::main()
-{
-	aios.reset(new boost::asio::io_service);
-	
-	try
-	{
-		acceptor.reset(new boost::asio::ip::tcp::acceptor(
-				*aios, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)));
-	}
-	catch (const std::exception & e)
-	{
-		aifil::log_error("%s; port = %i\n", e.what(), port);
-		return;
-	}
-	
-	socket.reset(new boost::asio::ip::tcp::socket(*aios));
-	
-	acceptor->async_accept(*socket, std::bind(&NetServer::on_accept, this, std::placeholders::_1));
-	aios->run();
-	
-	//закрываем соединение
-	if (socket)
-	{
-		boost::system::error_code err;
-		socket->shutdown(boost::asio::ip::tcp::socket::shutdown_both, err);
-		if (socket->is_open())
-			socket->close();
-	}
-	if (acceptor && acceptor->is_open())
-		acceptor->close();
-}
-
-void NetServer::stop()
-{
-	if (aios)
-		aios->stop();
-}
-
-void NetServer::join()
-{
-	if (thread && thread->joinable())
-		thread->join();
-	thread.reset();
-}
-
-void NetServer::on_accept(const boost::system::error_code &error)
-{
-	af_assert(socket);
-	socket->async_read_some(boost::asio::buffer(in_buffer), std::bind(
-			&NetServer::on_read, this,
-			std::placeholders::_1, std::placeholders::_2));
-}
-
-void NetServer::new_accept()
-{
-	if (socket)
-	{
-		boost::system::error_code err;
-		socket->shutdown(boost::asio::ip::tcp::socket::shutdown_both, err);
-		if (socket->is_open())
-			socket->close();
-	}
-	
-	socket.reset(new boost::asio::ip::tcp::socket(*aios));
-	af_assert(acceptor);
-	acceptor->async_accept(*socket,
-	                       std::bind(&HttpServer::on_accept, this, std::placeholders::_1));
-}
-
-void NetServer::on_error(const std::string &err_msg)
-{
-	// здесь пустой. переопределяется в потомках.
-}
-
-void NetServer::on_read(const boost::system::error_code &error, std::size_t len)
-{
-	bool final_read = false;
-	try
-	{
-		if (error == boost::asio::error::eof)
-		{
-			new_accept();
-			return;
-		}
-		
-		if(error.value() != 0)
-			af_exception("Socket error: " << error.message());
-		
-		final_read = process_read(error, len);
-
-		if (final_read)
-			new_accept();
-		else
-			socket->async_read_some(boost::asio::buffer(in_buffer), std::bind(
-					&NetServer::on_read, this,
-					std::placeholders::_1, std::placeholders::_2));
-	}
-	catch (const std::exception & e)
-	{
-		std::string err_msg(e.what());
-		on_error(err_msg);
-		new_accept();
-	}
-}
-
-HttpServer::HttpServer(int port_) :
-		NetServer(port_)
+HttpSession::HttpSession(std::shared_ptr<boost::asio::io_service> io_service_) :
+	TcpSession(io_service_),
+	keep_alive_flag(false),
+	request_ready(false)
 {
 	try
 	{
@@ -150,77 +31,132 @@ HttpServer::HttpServer(int port_) :
 	}
 }
 
-HttpServer::~HttpServer()
+HttpSession::~HttpSession()
 {
-	stop();
-	join();
+	shutdown();
+	if (curl_handle)
+		curl_easy_cleanup(curl_handle);
+	else
+		aifil::log_warning("HttpSession: nullptr curl handler");
 
-	curl_easy_cleanup(curl_handle);
 	curl_global_cleanup();
 }
 
-bool HttpServer::process_read(const boost::system::error_code &error, std::size_t len)
+void HttpSession::set_keep_alive(bool keep_alive_)
 {
-	bool final_read = false;
-	size_t char_counter = 0;
-	for (const char c: in_buffer)
-	{
-		final_read = http_splitter.push_char(c);
-		char_counter++;
-		if (final_read || char_counter >= len)
-			break;
-	}
-
-	if (!final_read)
-		return false;
-
-	//std::string header_str(in_buffer.begin(), in_buffer.begin() + len);
-	SimpleHttpRequest request;
-	HttpRequestParser parser;
-	//parser.parse(header_str, request);
-	
-	try
-	{
-		parser.parse_url(http_splitter.url(), request);
-	}
-	catch (const std::exception & e)
-	{
-		aifil::log_error(e.what());
-	}
-	
-	std::string unescape_path = unescape(request.relative_path);
-	std::map<std::string, std::string> unescape_params;
-	for (auto key_val: request.params)
-	{
-		std::string key = unescape(key_val.first);
-		std::string val = unescape(key_val.second);
-		unescape_params[key] = val;
-	}
-	// экранируем % -> %% для вывода в консоль
-	std::string unescaped_url = request.url;
-	size_t index = 0;
-	while (true)
-	{
-		index = unescaped_url.find("%", index);
-		if (index == std::string::npos)
-			break;
-		size_t len = 2; // len("%%")
-		unescaped_url.replace(index, len, "%%");
-		index += len;
-	}
-	
-	if (http_splitter.method() == "GET")
-		on_get(unescape_path, unescape_params, unescaped_url);
-	else if (http_splitter.method() == "POST")
-		on_post(unescape_path, unescape_params, http_splitter.content(), unescaped_url);
-	else if (http_splitter.method() == "PUT")
-		on_put(http_splitter.download_filename(), http_splitter.content());
-	
-	http_splitter.reset();
-	return true;
+	keep_alive_flag = keep_alive_;
 }
 
-std::string HttpServer::unescape(const std::string &src)
+void HttpSession::on_read_socket(const void * buffer, size_t count_in_bytes)
+{
+	std::string msg = "HttpSession::on_read_socket - ";
+	msg += "count_in_bytes " + std::to_string(count_in_bytes);
+	on_debug_msg(msg);
+	try
+	{
+		const uint8_t * data = (uint8_t *) buffer;
+
+		for (size_t i = 0; i < count_in_bytes; i++)
+		{
+			request_ready = http_splitter.push_char(data[i]);
+
+			if (request_ready)
+				break;
+		}
+
+		if (!request_ready)
+			return;
+
+		on_debug_msg("HttpSession: read complete");
+		SimpleHttpRequest request;
+		HttpRequestParser parser;
+
+		parser.parse_url(http_splitter.url(), request);
+
+		std::string unescape_path = unescape(request.relative_path);
+		std::map<std::string, std::string> unescape_params;
+
+		for (auto key_val: request.params)
+		{
+			std::string key = unescape(key_val.first);
+			std::string val = unescape(key_val.second);
+			unescape_params[key] = val;
+		}
+
+		// экранируем % -> %% для вывода в консоль
+		std::string unescaped_url = request.url;
+		size_t index = 0;
+
+		while (true)
+		{
+			index = unescaped_url.find("%", index);
+			if (index == std::string::npos)
+				break;
+			size_t len = 2; // len("%%")
+			unescaped_url.replace(index, len, "%%");
+			index += len;
+		}
+
+		if (http_splitter.method() == "GET")
+			on_get(unescape_path, unescape_params, http_splitter.content(), unescaped_url);
+		else if (http_splitter.method() == "POST")
+			on_post(unescape_path, unescape_params, http_splitter.content(), unescaped_url);
+		else if (http_splitter.method() == "PUT")
+			on_put(unescape_path, unescape_params, http_splitter.content(), unescaped_url);
+
+		http_splitter.reset();
+	}
+	catch(const std::exception & e)
+	{
+		response_500();
+		close_session();
+	}
+}
+
+void HttpSession::on_after_send()
+{
+	on_debug_msg("TcpSession::on_after_send()");
+	if (!keep_alive_flag)
+	{
+		close_session();
+	}
+}
+
+void HttpSession::on_after_read()
+{
+	if (!request_ready)
+		open_async_read();
+	request_ready = false;
+}
+
+void HttpSession::on_get(
+	const std::string &relative_path,
+	const std::map<std::string, std::string> &params,
+	const std::string &content,
+	const std::string &debug_url)
+{
+
+}
+
+void HttpSession::on_post(
+	const std::string &relative_path,
+	const std::map<std::string, std::string> &params,
+	const std::string &content,
+	const std::string &debug_url)
+{
+
+}
+
+void HttpSession::on_put(
+		const std::string &relative_path,
+		const std::map<std::string, std::string> &params,
+		const std::string &content,
+		const std::string &debug_url)
+{
+
+}
+
+std::string HttpSession::unescape(const std::string &src)
 {
 	int ret_len;
 	char *ret_ptr = curl_easy_unescape(curl_handle,	src.c_str(), src.size(), &ret_len);
@@ -229,34 +165,145 @@ std::string HttpServer::unescape(const std::string &src)
 	return ret_str;
 }
 
-void HttpServer::on_send(const boost::system::error_code& error, std::size_t bytes_transferred)
+void HttpSession::response_200()
 {
-	if (error.value() != 0)
-	{
-		std::stringstream ss;
-		ss << "Send data error: " << error.message() << ", bytes transfered: " << bytes_transferred;
-		on_error(ss.str());
-	}
+	std::stringstream header;
+	header << "HTTP/1.1 200 OK\r\n";
+	header << "\r\n";
+	async_send_data(header.str());
 }
 
-void HttpServer::send(const std::string &send_data)
+void HttpSession::response_400()
 {
-	std::vector<char> out_buffer;
-	out_buffer.clear();
-	out_buffer.insert(out_buffer.end(), send_data.begin(), send_data.end());
-	if (out_buffer.size() < SYNC_DATA_THRESHOLD)
-		socket->async_send(
-				boost::asio::buffer(out_buffer, out_buffer.size()),
-					std::bind(&HttpServer::on_send, this,
-							std::placeholders::_1, std::placeholders::_2));
+	std::stringstream header_teml;
+	header_teml << "HTTP/1.1 400 Bad Request\r\n";
+	header_teml << "\r\n";
+	async_send_data(header_teml.str());
+}
+
+void HttpSession::response_500()
+{
+	std::stringstream header_teml;
+	header_teml << "HTTP/1.1 500 Internal Server Error\r\n";
+	header_teml << "\r\n";
+	async_send_data(header_teml.str());
+}
+
+
+//-----------------------------
+//          Web Api
+//-----------------------------
+
+std::string WebApiHandler::response_200()
+{
+	std::stringstream header;
+	header << "HTTP/1.1 200 OK\r\n";
+	header << "\r\n";
+	return header.str();
+}
+
+std::string WebApiHandler::response_400()
+{
+	std::stringstream header_teml;
+	header_teml << "HTTP/1.1 400 Bad Request\r\n";
+	header_teml << "\r\n";
+	return header_teml.str();
+}
+
+std::string WebApiHandler::response_500()
+{
+	std::stringstream header_teml;
+	header_teml << "HTTP/1.1 500 Internal Server Error\r\n";
+	header_teml << "\r\n";
+	return header_teml.str();
+}
+
+std::string WebApiHandler::json_as_response(boost::property_tree::ptree &json_tree)
+{
+	std::stringstream body;
+	boost::property_tree::write_json(body, json_tree);
+
+	std::stringstream header;
+	header << "HTTP/1.1 200 OK\r\n";
+	header << "Content-Length: " << body.str().size() << "\r\n";
+	header << "content-type: application/json; charset=utf-8\r\n";
+	header << "\r\n";
+
+	return header.str() + body.str();
+}
+
+std::string Http400Handler::accept_query(
+		const std::map<std::string, std::string> &params,
+		const std::string &content,
+		const std::string &debug_url)
+{
+	return response_400();
+}
+
+WebApiSession::WebApiSession(std::shared_ptr<boost::asio::io_service> io_service_)
+	: HttpSession(io_service_)
+{
+	bind_unexpected_url(std::make_shared<Http400Handler>());
+}
+
+WebApiSession::~WebApiSession()
+{
+	shutdown();
+}
+
+void WebApiSession::on_get(
+	const std::string &short_url,
+	const std::map<std::string, std::string> &params,
+	const std::string &content,
+	const std::string &debug_url)
+{
+	accept_query(short_url, params, content, debug_url);
+}
+
+void WebApiSession::on_post(
+	const std::string &short_url,
+	const std::map<std::string, std::string> &params,
+	const std::string &content,
+	const std::string &debug_url)
+{
+	accept_query(short_url, params, content, debug_url);
+}
+
+void WebApiSession::on_put(
+	const std::string &short_url,
+	const std::map<std::string, std::string> &params,
+	const std::string &content,
+	const std::string &debug_url)
+{
+	accept_query(short_url, params, content, debug_url);
+}
+
+void WebApiSession::bind(
+		const std::string &short_url, const std::shared_ptr<WebApiHandler> &web_handler)
+{
+	web_handler_map[short_url] = web_handler;
+}
+
+void WebApiSession::bind_unexpected_url(const std::shared_ptr<WebApiHandler> &web_handler)
+{
+	unexpected_url_handler = web_handler;
+}
+
+void WebApiSession::accept_query(
+		const std::string &short_url,
+		const std::map<std::string, std::string> &params,
+		const std::string &content,
+		const std::string &debug_url)
+{
+	std::shared_ptr<WebApiHandler> cur_handler;
+	if (web_handler_map.find(short_url) == web_handler_map.end())
+		cur_handler = unexpected_url_handler;
 	else
-	{
-		boost::system::error_code err;
-		boost::asio::write(
-					*socket,
-					boost::asio::buffer(out_buffer, out_buffer.size()),
-					err);
-		if(err.value() != 0)
-			af_exception("Socket error: " << err.message());
-	}
+		cur_handler = web_handler_map.at(short_url);
+
+	af_assert(cur_handler);
+	std::string response_data = cur_handler->accept_query(params, content, debug_url);
+	bool ret = async_send_data(response_data);
+	if (!ret)
+		af_exception("Web api: error with send data");
 }

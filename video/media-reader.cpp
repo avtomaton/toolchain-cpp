@@ -101,7 +101,8 @@ MovieReaderInternals::MovieReaderInternals():
 	context_codec_video(0),
 	codec_video(0),
 	video_stream_index(-1),
-	eof(false), number_of_frames(0)
+	number_of_frames(0),
+	eof(false)
 {
 	init_ffmpeg();
 	memset(&pkt, 0, sizeof(pkt));

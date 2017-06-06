@@ -1,10 +1,11 @@
 #include "media-writer.hpp"
 
+#include <common/stringutils.hpp>
+
 #include <opencv2/videoio/videoio.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <iostream>
-#include <common/stringutils.hpp>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -13,10 +14,6 @@ extern "C" {
 #include <libswscale/swscale.h>
 #include <libavutil/opt.h>
 }
-
-// Такого размера изображения поступают от камеры.
-static int IMAGE_WIDTH  = 1920;
-static int IMAGE_HEIGHT = 1080;
 
 namespace aifil {
 

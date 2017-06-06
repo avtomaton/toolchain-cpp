@@ -31,6 +31,7 @@ set(OBJ_UTILS
 	mat-cache.cpp
 	mat-cache.hpp
 	pixel.hpp
+	math-helpers.cpp
 	# scales-handler.cpp
 	# scales-handler.hpp
 )

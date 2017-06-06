@@ -12,10 +12,11 @@
 
 //#include "sse/sse.h"
 
-#include <common/stringutils.hpp>
 #include <common/errutils.hpp>
 #include <common/logging.hpp>
 #include <common/profiler.hpp>
+#include <common/rngutils.hpp>
+#include <common/stringutils.hpp>
 
 #ifdef HAVE_SWSCALE
 extern "C" {
@@ -1170,6 +1171,14 @@ double median(const cv::Mat_<type_t> &src)
 MAKE_FUNC_FOR_OCV_TYPES(cv::Point2d, expected_value)
 MAKE_FUNC_FOR_OCV_TYPES(cv::Point2d, variance)
 MAKE_FUNC_FOR_OCV_TYPES(double, median)
+
+cv::Scalar pick_random_color()
+{
+	unsigned char r = get_rand_value<uint8_t>();
+	unsigned char g = get_rand_value<uint8_t>();
+	unsigned char b = get_rand_value<uint8_t>();
+	return cv::Scalar(b, g, r);
+}
 
 }  // namespace imgproc
 }  // namespace aifil

@@ -17,27 +17,18 @@ endif()
 
 set(OBJ_UTILS
 	cached-vector.cpp
-	cached-vector.hpp
 	conf-parser.cpp
-	conf-parser.hpp
 	console.cpp
-	console.hpp
 	errutils.cpp
-	errutils.hpp
 	fileutils.cpp
-	fileutils.hpp
 	logging.cpp
-	logging.hpp
-	math-helpers.cpp
-	math-helpers.hpp
 	profiler.cpp
-	profiler.hpp
+	rngutils.cpp
 	stringutils.cpp
-	stringutils.hpp
 	timeutils.cpp
-	timeutils.hpp
 	c_attribs.hpp
-	adjacency-matrix.cpp adjacency-matrix.h)
+	adjacency-matrix.cpp adjacency-matrix.h
+	typedefs.hpp)
 
 add_library(aifil-utils-common ${OBJ_UTILS})
 

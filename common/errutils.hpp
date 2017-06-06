@@ -4,6 +4,8 @@
 #include <string>
 #include <sstream>
 #include <stdexcept>
+#include <mutex>
+#include <atomic>
 
 #include <csignal>
 
@@ -136,6 +138,18 @@ protected:
 	std::string debug;
 };
 
+
+class ErrContext
+{
+public:
+	void set_error_message(const std::string & message);
+	std::string get_error_message(const std::string & sub_message);
+
+private:
+	std::mutex error_message_mutex;
+	std::atomic_bool error_message_present {false};
+	std::string error_message;
+};
 
 } //namespace aifil
 

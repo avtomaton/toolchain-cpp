@@ -41,8 +41,6 @@ AdjacencyMatrix& AdjacencyMatrix::operator+= (const AdjacencyMatrix &rhs)
 	if (matr.size() != rhs.matr.size())
 		af_exception("AdjacencyMatrix::AdjacencyMatrix::operator+= (const AdjacencyMatrix &rhs) " \
 								   "Different of rhs and *this.");
-
-
 	for (const auto &it:rhs.matr)
 	{
 		for (const auto &jt:it)
@@ -53,9 +51,7 @@ AdjacencyMatrix& AdjacencyMatrix::operator+= (const AdjacencyMatrix &rhs)
 	return *this;
 }
 
-
-
-bool AdjacencyMatrix::operator==(const AdjacencyMatrix &rhs)
+bool AdjacencyMatrix::operator==(const AdjacencyMatrix &rhs) const
 {
 	if (matr.size() != rhs.matr.size())
 		return false;
@@ -75,12 +71,12 @@ bool AdjacencyMatrix::operator==(const AdjacencyMatrix &rhs)
 	return true;
 }
 
-double& AdjacencyMatrix::operator() (std::string first_vertex, std::string second_vertex)
+double& AdjacencyMatrix::operator()(const std::string &first_vertex, const std::string &second_vertex)
 {
 	return find_element(first_vertex, second_vertex).edge_weight;
 }
 
-Vertex& AdjacencyMatrix::find_element(std::string y_vertex, std::string x_vertex)
+Vertex& AdjacencyMatrix::find_element(const std::string &y_vertex, const std::string &x_vertex)
 {
 	int i = find_y_index(y_vertex);
 	int j = find_x_index(x_vertex);
@@ -88,22 +84,25 @@ Vertex& AdjacencyMatrix::find_element(std::string y_vertex, std::string x_vertex
 		af_exception("AdjacencyMatrix::find_element(std::string y_vertex, std::string x_vertex): " \
 						 "Incorrect pattern-id strings in graph.");
 	return matr[i][j];
-
-
 }
 
-int AdjacencyMatrix::find_x_index(const std::string x_vertex)
+int AdjacencyMatrix::find_x_index(const std::string &x_vertex) const
 {
-	if (x_vertex_names.find(x_vertex) != x_vertex_names.end())
-		return x_vertex_names[x_vertex];
-	return -1;
+	auto it = x_vertex_names.find(x_vertex);
+	if (it != x_vertex_names.end())
+		return it->second;
+	else
+		return -1;
 }
 
-int AdjacencyMatrix::find_y_index(const std::string y_vertex)
+int AdjacencyMatrix::find_y_index(const std::string &y_vertex) const
 {
-	if (y_vertex_names.find(y_vertex) != y_vertex_names.end())
-		return y_vertex_names[y_vertex];
-	return -1;
+	auto it = y_vertex_names.find(y_vertex);
+	if (it != y_vertex_names.end())
+		return it->second;
+	else
+		return -1;
+
 }
 
 void AdjacencyMatrix::cout_debug_print()
@@ -124,12 +123,10 @@ void AdjacencyMatrix::cout_debug_print()
 
 std::string AdjacencyMatrix::result_to_string(bool norm, int width, int height)
 {
-
 	if (width < 0 || width > size || height < 0 || height > size)
 		aifil::log_state("AdjacencyMatrix::Incorrect arguments in result_to_string(int width, int height).");
 	if (width <= 0 || width > size)
 		width = size;
-
 	if (height <= 0 || height > size)
 		height = size;
 
@@ -150,17 +147,14 @@ std::string AdjacencyMatrix::result_to_string(bool norm, int width, int height)
 				result += aifil::stdprintf("%.2lf\t", sum ? matr[i][j].edge_weight*100/sum : 0);
 			else
 				result += aifil::stdprintf("%.2lf\t", matr[i][j].edge_weight);
-
-
 		}
 		result += "\n";
 	}
 	return result;
 }
 
-std::string AdjacencyMatrix::get_row_as_string(std::string y_vertex)
+std::string AdjacencyMatrix::get_row_as_string(const std::string &y_vertex)
 {
-
 	int i = find_y_index(y_vertex);
 	if (i == -1)
 		af_exception("AdjacencyMatrix::get_row_as_string(std::string y_vertex): " \
@@ -181,9 +175,8 @@ std::string AdjacencyMatrix::get_row_as_string(std::string y_vertex)
 	return result;
 }
 
-std::string AdjacencyMatrix::get_col_as_string(std::string x_vertex)
+std::string AdjacencyMatrix::get_col_as_string(const std::string &x_vertex)
 {
-
 	int k = find_x_index(x_vertex);
 	if (k == -1)
 		af_exception("AdjacencyMatrix::get_col_as_string(std::string x_vertex): " \
@@ -229,15 +222,12 @@ double AdjacencyMatrix::sum_column(const int j)
 void AdjacencyMatrix::sort_rows()
 {
 	std::sort(matr.begin(), matr.end(), [this](const std::vector<Vertex>&a,
-										   const std::vector<Vertex>&b)
-	{
-		return sum_row(a) > sum_row(b);
-	});
+    const std::vector<Vertex>&b) {return sum_row(a) > sum_row(b); });
 	y_vertex_names.clear();
 	for (int i = 0; i < size; i++)
 		y_vertex_names[matr[i][0].y_vertex] = i;
-
 }
+
 void AdjacencyMatrix::sort_columns()
 {
 	bool sorted = false;
@@ -263,6 +253,7 @@ void AdjacencyMatrix::sort()
 	sort_rows();
 	sort_columns();
 }
+
 double AdjacencyMatrix::sum()
 {
 	double sum = 0;
@@ -288,7 +279,3 @@ void AdjacencyMatrix::swap_columns(const int i, const int j)
 		std::swap(matr[k][i], matr[k][j]);
 }
 
-AdjacencyMatrix::~AdjacencyMatrix()
-{
-
-}

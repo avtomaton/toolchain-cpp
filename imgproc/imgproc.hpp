@@ -250,6 +250,11 @@ cv::Point2d variance(const cv::Mat &src);
  */
 double median(const cv::Mat &src);
 
+/**
+ * @brief Pick random color for drawing.
+ * @return BGR color.
+ */
+cv::Scalar pick_random_color();
 
 } //namespace imgproc
 
