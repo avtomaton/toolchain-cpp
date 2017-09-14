@@ -14,18 +14,17 @@ class VideoCapture;
 
 namespace aifil {
 
-
 class MovieReader
 {
 public:
 	MovieReader(const std::string &filename);
 	~MovieReader();
 
-	int w, h;	///< ширина, высота
-	// Переменные одноимённого цветогого пространства YUV:
-	uint8_t* Y;	///< яркость
-	uint8_t* U;	///< компонент цветности
-	uint8_t* V;	///< и ещё один компонент цветности
+	int w, h;	///< width, height
+	// YUV colorspace:
+	uint8_t* Y;	///< luma
+	uint8_t* U;	///< chroma
+	uint8_t* V;	///< chroma
 	int rs_Y;
 	int rs_U;
 	int rs_V;
@@ -43,11 +42,18 @@ public:
 
 struct SequentialReader
 {
-	SequentialReader() : movie(0), cv_movie(0), wanted_fps(25), cur_frame_num(0) {}
+	SequentialReader(bool use_ffmpeg = false) :
+		movie(nullptr),
+		cv_movie(nullptr),
+		wanted_fps(25),
+		cur_frame_num(0),
+		ffmpeg_explicit_backend(use_ffmpeg)
+	{}
 	~SequentialReader();
 
 	MovieReader *movie;
 	cv::VideoCapture *cv_movie;
+	bool ffmpeg_explicit_backend;
 	std::list<std::string> photos;
 	std::list<std::string>::iterator next_photo;
 	int wanted_fps;
@@ -59,10 +65,33 @@ struct SequentialReader
 
 	void setup(const std::string &path, int fps = 25);
 	bool feed_frame();
-	bool fast_feed_frame();//cur_frame is invalid
+
+	// cur_frame will be empty
+	bool fast_feed_frame();
 
 	cv::Mat get_image_gray();
 	cv::Mat get_image_rgb();
+};
+
+struct FFHandle;
+
+struct VideoStreamReader
+{
+	enum class ErrorStatus {OK, IDLE, FORMAT_ERROR, CODEC_ERROR, APP_ERROR};
+
+	void open_input(const std::string &stream_addr);
+	void close_input();
+	cv::Mat get_frame();
+
+	bool stop_flag = false;
+	bool input_is_open = false;
+	ErrorStatus current_error_status = ErrorStatus::OK;
+
+	int video_stream_index = -1;
+	int frame_w = 0;
+	int frame_h = 0;
+
+	std::shared_ptr<FFHandle> ff_handle;
 };
 
 }  // namespace aifil

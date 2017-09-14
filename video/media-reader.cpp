@@ -15,11 +15,13 @@
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libswscale/swscale.h>
 }
 
 #include <errno.h>
 #include <stdexcept>
 #include <set>
+#include <memory>
 
 using aifil::except;
 
@@ -78,7 +80,8 @@ static void init_ffmpeg()
 /**
 * @brief Хранит информацию о медиафайле, позволяет получить кадр и информацию о нём.
 */
-struct MovieReaderInternals {
+struct MovieReaderInternals
+{
 	MovieReaderInternals();
 	~MovieReaderInternals();
 
@@ -90,6 +93,7 @@ struct MovieReaderInternals {
 	int video_stream_index;                 ///< номер видеопотока загружаемого файла
 	int number_of_frames;
 	bool eof;
+	bool want_new_packet;
 
 	void init(const std::string &filename);
 	void get_frame(int frame);
@@ -102,7 +106,8 @@ MovieReaderInternals::MovieReaderInternals():
 	codec_video(0),
 	video_stream_index(-1),
 	number_of_frames(0),
-	eof(false)
+	eof(false),
+	want_new_packet(true)
 {
 	init_ffmpeg();
 	memset(&pkt, 0, sizeof(pkt));
@@ -168,14 +173,14 @@ void MovieReaderInternals::init(const std::string &filename)
 		context_codec_video = avcodec_alloc_context3(nullptr);
 
 		// Бобавляем все параметры "ручками".
-		if(avcodec_parameters_to_context(context_codec_video, format_video->streams[stream_index]->codecpar)) {
+		if (avcodec_parameters_to_context(context_codec_video, format_video->streams[stream_index]->codecpar)) {
 			// Невозможно добавить параметры кодека.
 			continue;
 		}
 
 		// Корректируем timebase и id.
 		av_codec_set_pkt_timebase(context_codec_video, format_video->streams[stream_index]->time_base);
-		context_codec_video->codec_id = codec_video->id;
+//		context_codec_video->codec_id = codec_video->id;
 #endif
 
 		break;
@@ -214,6 +219,8 @@ void MovieReaderInternals::get_frame(int frame)
 	while (true)
 	{
 		// Считываем пакет из видео (для видео в 1-ом пакете - 1 кадр).
+		// Да ладно? Вот прям всегда?
+		// TODO: want_new_packet
 		if (av_read_frame(format_video, &pkt) < 0)
 		{
 			eof = true;
@@ -234,23 +241,23 @@ void MovieReaderInternals::get_frame(int frame)
 			break;
 		}
 #else
-		int ret;
-		if ((ret = avcodec_send_packet(context_codec_video, &pkt)) < 0) {
-			except(ret<0, "avcodec_send_packet error. ret=%08x\n" + AVERROR(ret));
-		}
-		if ((ret = avcodec_receive_frame(context_codec_video, picture_video)) < 0) {
-			if (ret != AVERROR(EAGAIN)) {
+		int ret = avcodec_send_packet(context_codec_video, &pkt);
+		except(ret >= 0, "avcodec_send_packet error. ret=%08x\n" + AVERROR(ret));
+
+		if ((ret = avcodec_receive_frame(context_codec_video, picture_video)) < 0)
+		{
+			if (ret != AVERROR(EAGAIN))
+			{
 				printf("avcodec_receive_frame error. ret=%08x\n", AVERROR(ret));
 				break;
 			}
 		}
-		if (ret >=0)
+		if (ret >= 0)
 		{
 			++number_of_frames;
 			break;
 		}
 #endif
-
 	}
 }
 
@@ -373,7 +380,6 @@ void SequentialReader::setup(const std::string &input_path, int fps)
 	if (!is_directory(my_dir) && !aifil::endswith(input_path, ".lst"))
 	{
 		// try to load movie
-		bool ffmpeg_explicit_backend = false;
 		if (ffmpeg_explicit_backend)
 		{
 			movie = new MovieReader(input_path);
@@ -420,8 +426,8 @@ void SequentialReader::setup(const std::string &input_path, int fps)
 		else
 		{
 			photos.clear();
-			std::set<std::string> extensions = {".png", ".pgm", ".jpg", ".jpeg" };
-			photos = aifil::ls_directory(input_path, extensions);
+			//std::set<std::string> extensions = {".png", ".pgm", ".jpg", ".jpeg" };
+			photos = aifil::ls_directory(input_path, PATH_FILE);
 		}
 		// equalize photos order
 		photos.sort();
@@ -440,9 +446,10 @@ bool SequentialReader::feed_frame()
 			return false;
 
 		cur_frame_num = frame_num;
-		cur_frame->set_yuv422(movie->Y, movie->rs_Y,
-							  movie->U, movie->rs_U,
-							  movie->V, movie->rs_V);
+		cur_frame->set_yuv422(
+				movie->Y, movie->rs_Y,
+				movie->U, movie->rs_U,
+				movie->V, movie->rs_V);
 	}
 	else if (cv_movie)
 	{
@@ -455,23 +462,28 @@ bool SequentialReader::feed_frame()
 	}
 	else if (!photos.empty())
 	{
-		if (next_photo == photos.end())
-			return false;
-
-		cur_frame_name = aifil::get_relative_path(media_path, *next_photo);
-		cv::Mat mat = cv::imread(*next_photo);
-		if (mat.empty())
+		cv::Mat mat;
+		while(true)
 		{
-			aifil::log_warning("wrong image file '%s'", next_photo->c_str());
-			
-			// don't break GUI functionality, just create empty black image
-			mat = cv::Mat(640, 480, CV_8UC3, cv::Scalar(0, 0, 0));
-			return false;
+			if (next_photo == photos.end())
+				return false;
+			cur_frame_name = aifil::get_relative_path(media_path, *next_photo);
+			mat = cv::imread(*next_photo);
+			if (mat.empty())
+			{
+				aifil::log_warning("wrong image file '%s'", next_photo->c_str());
+				++next_photo;
+				++cur_frame_num;
+				continue;
+			}
+			else
+				break;
 		}
-		if (!mat.empty()
-			&& (!cur_frame
+
+		af_assert(!mat.empty());
+		if (!cur_frame
 				|| cur_frame->width != mat.cols
-				|| cur_frame->height != mat.rows))
+				|| cur_frame->height != mat.rows)
 			cur_frame.reset(new MatCache(mat.cols, mat.rows));
 
 		cur_frame->set_cv_mat(mat);
@@ -484,8 +496,9 @@ bool SequentialReader::feed_frame()
 	return true;
 }
 
-bool SequentialReader::fast_feed_frame()//cur_frame is invalid
+bool SequentialReader::fast_feed_frame()
 {
+	// cur_frame will be empty
 	if (movie)
 	{
 		int frame_num = movie->get_frame();
@@ -538,6 +551,216 @@ cv::Mat SequentialReader::get_image_rgb()
 		return cur_frame->get_rgb_8u();
 	else
 		return cv::Mat();
+}
+
+struct FFHandle
+{
+	AVStream * in_stream = nullptr;
+	AVCodecContext  * codec_context = nullptr;
+	AVFormatContext *format_context = nullptr;
+
+	AVFrame * av_frame = nullptr;
+	SwsContext * img_convert_ctx = nullptr;
+
+	std::list<AVPacket> packets;
+};
+
+void VideoStreamReader::open_input(const std::string &stream_addr)
+{
+	input_is_open = false;
+	ff_handle = std::make_shared<FFHandle>();
+
+	if (ff_handle->av_frame)
+		av_frame_free(&ff_handle->av_frame);
+	ff_handle->av_frame = av_frame_alloc();
+
+	if (ff_handle->format_context)
+		avformat_free_context(ff_handle->format_context);
+	ff_handle->format_context = avformat_alloc_context();
+
+//	in_format_context->interrupt_callback.callback = avi_interrupt_callback;
+//	in_format_context->interrupt_callback.opaque = &avi_interrupt_context;
+
+	aifil::log_state("Opening stream '%s'", stream_addr.c_str());
+
+	int avi_res = avformat_open_input(
+			&ff_handle->format_context, stream_addr.c_str(), NULL, NULL);
+
+	if (avi_res != 0)
+	{
+		current_error_status = ErrorStatus::FORMAT_ERROR;
+		af_exception("Error in avformat_open_input");
+	}
+
+	avi_res = avformat_find_stream_info(ff_handle->format_context, NULL);
+
+	if (avi_res < 0)
+	{
+		current_error_status = ErrorStatus::FORMAT_ERROR;
+		af_exception("Error in avformat_find_stream_info");
+	}
+
+	video_stream_index = -1;
+
+	for (int i = 0; i < int(ff_handle->format_context->nb_streams); i++)
+	{
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 48, 0)
+		if (ff_handle->format_context->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO)
+#else
+		if (ff_handle->format_context->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
+#endif
+		{
+			ff_handle->in_stream = ff_handle->format_context->streams[i];
+			video_stream_index = i;
+			break;
+		}
+	}
+
+	if (video_stream_index < 0)
+	{
+		current_error_status = ErrorStatus::FORMAT_ERROR;
+		af_exception("Video stream not found");
+	}
+
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 48, 0)
+	ff_handle->codec_context = ff_handle->in_stream->codec;
+#else
+	ff_handle->codec_context = avcodec_alloc_context3(nullptr);
+
+	// We should set them manually
+	if (avcodec_parameters_to_context(
+			ff_handle->codec_context, ff_handle->in_stream->codecpar))
+	{
+		af_exception("Cannot setup codec context");
+	}
+
+//	// Корректируем timebase и id.
+//	av_codec_set_pkt_timebase(ff_handle->codec_context, ff_handle->in_stream->time_base);
+//	ff_handle->codec_context->codec_id = ff_handle->in_stream->codec->id;
+#endif
+
+	AVCodec *codec = avcodec_find_decoder(ff_handle->codec_context->codec_id);
+	if (codec == NULL)
+	{
+		current_error_status = ErrorStatus::CODEC_ERROR;
+		af_exception("Codec not found");
+	}
+	log_debug("Codec: %s", codec->name);
+
+	if (avcodec_open2(ff_handle->codec_context, codec, NULL) < 0)
+	{
+		current_error_status = ErrorStatus::CODEC_ERROR;
+		af_exception("Codec error");
+	}
+
+	av_dump_format(ff_handle->format_context, 0, stream_addr.c_str(), 0);
+	frame_w = ff_handle->codec_context->width;
+	frame_h = ff_handle->codec_context->height;
+
+	input_is_open = true;
+}
+
+void VideoStreamReader::close_input()
+{
+	af_assert(ff_handle && "OPEN STREAM before closing stream");
+
+	if (ff_handle->av_frame)
+		av_frame_free(&ff_handle->av_frame);
+	if (ff_handle->img_convert_ctx)
+		sws_freeContext(ff_handle->img_convert_ctx);
+
+	if (ff_handle->codec_context)
+		avcodec_close(ff_handle->codec_context);
+
+	if (!input_is_open)
+		return;
+
+	if (ff_handle->format_context)
+		avformat_close_input(&ff_handle->format_context);
+
+	ff_handle->codec_context = nullptr;
+	ff_handle->format_context = nullptr;
+	input_is_open = false;
+}
+
+cv::Mat VideoStreamReader::get_frame()
+{
+	af_assert(ff_handle && "OPEN STREAM before getting frames");
+
+	if (ff_handle->packets.empty())
+	{
+		int ret = 0;
+		while (true)
+		{
+			AVPacket packet;
+			ret = av_read_frame(ff_handle->format_context, &packet);
+			if (ret < 0)
+				break;
+			if (packet.stream_index != video_stream_index)
+				continue;
+
+			ff_handle->packets.emplace_back(packet);
+			break;
+		}
+
+		if (ff_handle->packets.empty())
+		{
+			char buf[256];
+			av_strerror(ret, buf, sizeof(buf));
+			aifil::log_debug("reading fail: %d (%s)", ret, buf);
+		}
+	}
+
+	if (ff_handle->packets.empty())
+		return cv::Mat();
+
+	int frame_finished = 0;
+	int decoded_size = avcodec_decode_video2(
+			ff_handle->codec_context,
+			ff_handle->av_frame,
+			&frame_finished,
+			&(ff_handle->packets.front()));
+	av_free_packet(&(ff_handle->packets.front()));
+	ff_handle->packets.pop_front();
+
+	if (decoded_size < 0)
+	{
+		char buf[256];
+		av_strerror(decoded_size, buf, sizeof(buf));
+		aifil::log_debug("decoding fail: %d (%s)", decoded_size, buf);
+		return cv::Mat();
+	}
+
+	frame_w = ff_handle->codec_context->width;
+	frame_h = ff_handle->codec_context->height;
+	ff_handle->img_convert_ctx = sws_getCachedContext(
+			ff_handle->img_convert_ctx,
+			frame_w, frame_h, ff_handle->codec_context->pix_fmt,
+			frame_w, frame_h, AV_PIX_FMT_BGR24,
+			SWS_BICUBIC, NULL, NULL, NULL);
+	af_assert(ff_handle->img_convert_ctx);
+
+	size_t required_octets = avpicture_get_size(
+			AV_PIX_FMT_BGR24,
+			frame_w,
+			frame_h);
+	cv::Mat cv_frame(frame_h, frame_w, CV_8UC3);
+	af_assert(cv_frame.step == cv_frame.cols * cv_frame.elemSize());
+	af_assert(cv_frame.total() * cv_frame.elemSize() == required_octets);
+
+	af_assert(AV_NUM_DATA_POINTERS >= 4);
+
+	uint8_t * dst_data[4] = {nullptr, nullptr, nullptr, nullptr};
+	int dst_linesize[4] = {0, 0, 0, 0};
+
+	dst_data[0] = cv_frame.data;
+	dst_linesize[0] = cv_frame.cols * cv_frame.elemSize();
+
+	sws_scale(
+			ff_handle->img_convert_ctx,
+			ff_handle->av_frame->data, ff_handle->av_frame->linesize, 0, frame_h,
+			dst_data, dst_linesize);
+	return cv_frame;
 }
 
 }  // namespace aifil

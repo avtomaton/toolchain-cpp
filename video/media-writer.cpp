@@ -33,7 +33,8 @@ static void init_ffmpeg()
 /**
  * @brief Содержит в себе низкоуровневую работу по записи (склеивании) изображений в видеофайл.
  */
-struct MovieWriterInternals {
+struct MovieWriterInternals
+{
 	/**
  	* @brief В онструкторе инициализируются интерфунсы ffmpeg,
  	* вызываются функции для обнуления памяти используемых объектов.
@@ -68,10 +69,7 @@ public:
 	void emulate_delay(int pts, int frame_size);
 
 private:
-	/**
- 	* @brief В деструкторе кодируются и записываются последние кадры и освобождаются ресурсы.
- 	*/
-	void write_last_frames();
+	void encode_and_write();
 
 	/**
 	 * @brief Конвертирует изображение из цветовой модели RGB
@@ -138,11 +136,14 @@ MovieWriterInternals::MovieWriterInternals(const std::string &video_name, int fr
 
 
 /**
- * @brief В деструкторе кодируются и записываются последние кадры и освобождаются ресурсы.
+ * @brief В деструкторе кодируются и записываются последние кадры
+ * и освобождаются ресурсы.
  */
 MovieWriterInternals::~MovieWriterInternals()
 {
-	write_last_frames();
+	// write video end of file
+	uint8_t end_code[] = { 0, 0, 1, 0xb7 };
+	fwrite(end_code, 1, sizeof(end_code), output_video_file);
 
 	fclose(output_video_file);
 	avcodec_close(codec_context);
@@ -191,18 +192,7 @@ void MovieWriterInternals::write_image(const cv::Mat &image, int pts)
 	packet.data = NULL;
 	packet.size = 0;
 
-	int got_output;
-	// Фрейм - в пакет.
-	int return_code = avcodec_encode_video2(codec_context, &packet, frame, &got_output);
-	if (return_code < 0) {
-		std::cout << "Error encoding frame: avcodec_encode_video2() is failed." << std::endl;
-		return;
-	}
-	if (got_output) {
-		// Пакет - в файл.
-		fwrite(packet.data, 1, packet.size, output_video_file);
-		av_free_packet(&packet);
-	}
+	encode_and_write();
 }
 
 
@@ -214,51 +204,58 @@ void MovieWriterInternals::write_image(const cv::Mat &image, int pts)
 void MovieWriterInternals::emulate_delay(int pts, int frame_size)
 {
 	frame->pts = pts;
-	// Суть пустой кадр.
+	// empty frame
 	memset(frame->data[0], 0, frame_size);
 
 	av_init_packet(&packet);
 	packet.data = NULL;
 	packet.size = 0;
 
-	int got_output;
-	// Фрейм - в пакет.
-	int return_code = avcodec_encode_video2(codec_context, &packet, frame, &got_output);
-	if (return_code < 0) {
-		std::cout << "Error encoding frame: avcodec_encode_video2() is failed." << std::endl;
-		return;
-	}
-	if (got_output) {
-		// Пакет - в файл.
-		fwrite(packet.data, 1, packet.size, output_video_file);
-		av_free_packet(&packet);
-	}
+	encode_and_write();
 }
 
-
-/**
- * @brief Кодирует и записывает последние кадры + дописывает признак конца файла.
- */
-void MovieWriterInternals::write_last_frames()
+void MovieWriterInternals::encode_and_write()
 {
 	int got_output;
+	// frame to output packet
+	int return_code = avcodec_encode_video2(codec_context, &packet, frame, &got_output);
+	if (return_code < 0)
+	{
+		std::cout << "Error encoding frame: avcodec_encode_video2() is failed.\n";
+		return;
+	}
 
-	do {
-		fflush(stdout);
-		int return_code = avcodec_encode_video2(codec_context, &packet, NULL, &got_output);
-		if (return_code < 0) {
-			std::cout << "Error encoding frame: avcodec_encode_video2() is failed" << std::endl;
-			return;
-		}
-		if (got_output) {
-			fwrite(packet.data, 1, packet.size, output_video_file);
-			av_packet_unref(&packet);
-		}
-	} while (got_output);
+	while (got_output)
+	{
+		// packet to file
+		fwrite(packet.data, 1, packet.size, output_video_file);
+		av_free_packet(&packet);
 
-	// Записываем признак конца видеофайла.
-	uint8_t end_code[] = { 0, 0, 1, 0xb7 };
-	fwrite(end_code, 1, sizeof(end_code), output_video_file);
+		return_code = avcodec_encode_video2(codec_context, &packet, NULL, &got_output);
+		if (return_code < 0)
+		{
+			std::cout << "Error encoding frame: avcodec_encode_video2() is failed\n";
+			break;
+		}
+	}
+
+	// TODO (ffmpeg 3.x):
+//	int return_code = avcodec_send_frame(codec_context, frame);
+//	if (return_code < 0)
+//	{
+//		std::cout << "Error encoding frame: avcodec_send_frame() is failed.\n";
+//		return;
+//	}
+//	while (true)
+//	{
+//		return_code = avcodec_receive_packet(codec_context, &packet);
+//		if (return_code < 0)
+//			break;
+
+//		// packet to file
+//		fwrite(packet.data, 1, packet.size, output_video_file);
+//		av_packet_unref(&packet);
+//	}
 }
 
 

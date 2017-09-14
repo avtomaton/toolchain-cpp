@@ -82,6 +82,7 @@ void Profiler::clear()
 {
 	std::unique_lock<std::mutex> lock(storage_mutex);
 	storage.clear();
+	storage_order.clear();
 }
 
 std::string Profiler::print_statistics()

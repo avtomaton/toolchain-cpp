@@ -27,8 +27,16 @@ set(OBJ_UTILS
 	stringutils.cpp
 	timeutils.cpp
 	c_attribs.hpp
-	adjacency-matrix.cpp adjacency-matrix.h
-	typedefs.hpp)
+	adjacency-matrix.cpp
+	adjacency-matrix.h
+	id-generator.hpp
+	stream-median.hpp
+	stream-median.cpp
+	state-records.cpp
+	state-records.hpp
+	state-events.hpp
+	state-events.cpp
+	diagnostic-events.hpp)
 
 add_library(aifil-utils-common ${OBJ_UTILS})
 

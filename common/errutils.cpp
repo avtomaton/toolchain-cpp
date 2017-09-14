@@ -183,34 +183,4 @@ std::string pretty_backtrace(int max_frames, void *caller_addr)
 #endif  // non-win32
 }
 
-
-void ErrContext::set_error_message(const std::string & message)
-{
-	std::lock_guard<std::mutex> lock(error_message_mutex);
-
-	if ((!message.empty()) && (error_message_present))
-		return;
-
-	if (message.empty())
-		error_message_present = false;
-	else
-		error_message_present = true;
-
-	error_message = message;
-}
-
-
-std::string ErrContext::get_error_message(const std::string & sub_message)
-{
-	std::lock_guard<std::mutex> lock(error_message_mutex);
-
-	if (!sub_message.empty())
-	{
-		error_message = sub_message;
-		error_message_present = true;
-	}
-
-	return error_message;
-}
-
 } //namespace aifil
